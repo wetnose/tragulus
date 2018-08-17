@@ -1,0 +1,11 @@
+plugins {
+    id 'java'
+    id 'maven-publish'
+}
+
+group = 'wn.tragulus'
+version = '1.0'
+
+dependencies {
+    compile files("${System.getProperty('java.home')}/../lib/tools.jar")
+}
