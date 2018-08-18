@@ -1,2 +1,2 @@
-include 'tragulus'
+include 'tragulus', 'samples:tragulus-sugar'
 

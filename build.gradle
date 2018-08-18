@@ -1,3 +1,9 @@
-repositories {
-    mavenCentral()
+allprojects {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+    }
+
+    group = 'wn.tragulus'
+    version = '1.1'
 }

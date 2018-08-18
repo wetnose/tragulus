@@ -3,7 +3,9 @@ plugins {
 }
 
 dependencies {
-    compileOnly files("${System.getProperty('java.home')}/../lib/tools.jar")
+    compile files("${System.getProperty('java.home')}/../lib/tools.jar")
+    compile project(':tragulus')
+    testCompile 'junit:junit:4.12'
 }
 
 jar {
@@ -12,4 +14,5 @@ jar {
                 'Implementation-Title': project.name,
                 'Implementation-Version': project.version)
     }
+
 }
