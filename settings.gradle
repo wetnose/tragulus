@@ -1,2 +1,2 @@
-include 'tragulus', 'samples:tragulus-sugar'
+include 'tragulus', 'samples:tragulus-sugar', 'samples:pseudoclasses'
 
