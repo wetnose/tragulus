@@ -159,9 +159,9 @@ public class OptProcessorTest {
         Runtime runtime = Runtime.getRuntime();
         File javaFile = fileOf(target);
         File testDir = javaFile.getParentFile().getParentFile();
-        String cmd = "java -cp \"" + new File(testDir, "tmp") + "\" " + target;
-        System.out.println("> " + cmd);
-        Process process = runtime.exec(cmd);
+        String[] command = {"java", "-cp", new File(testDir, "tmp").toString(), target};
+        System.out.println("> " + String.join(" ", command));
+        Process process = runtime.exec(command);
         int ret = process.waitFor();
         System.out.println(ret);
         byte[] buf = new byte[4096];
