@@ -18,6 +18,8 @@ import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Name;
+import javax.lang.model.element.PackageElement;
+import javax.lang.model.element.QualifiedNameable;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
@@ -141,6 +143,12 @@ public class ProcessingHelper {
     }
 
 
+    public Name getName(Element element) {
+        if (element instanceof QualifiedNameable) return ((QualifiedNameable) element).getQualifiedName();
+        return null;
+    }
+
+
     public Name getName(TypeMirror type) {
         if (type == null) return null;
         switch (type.getKind()) {
@@ -154,6 +162,7 @@ public class ProcessingHelper {
             case FLOAT    : return getName("float");
             case DOUBLE   : return getName("double");
             case DECLARED : return ((TypeElement) ((DeclaredType) type).asElement()).getQualifiedName();
+            case PACKAGE  : return ((PackageElement) ((DeclaredType) type).asElement()).getQualifiedName();
             default       : return null;
         }
     }
