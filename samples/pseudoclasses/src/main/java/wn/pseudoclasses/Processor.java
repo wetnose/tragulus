@@ -1,29 +1,28 @@
 package wn.pseudoclasses;
 
-import com.sun.source.tree.ImportTree;
-import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.Tree;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import com.sun.tools.javac.tree.TreeTranslator;
 import wn.tragulus.BasicProcessor;
-import wn.tragulus.JavacUtils;
+import wn.tragulus.Editors;
 
 import javax.annotation.processing.RoundEnvironment;
+import javax.lang.model.AnnotatedConstruct;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.Name;
-import javax.lang.model.element.PackageElement;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static javax.lang.model.element.ElementKind.CLASS;
 
 /**
  * Alexander A. Solovioff
@@ -32,7 +31,13 @@ import static javax.lang.model.element.ElementKind.CLASS;
  */
 public class Processor extends BasicProcessor {
 
-    private static final Class<?>[] PSEUDOTYPES = {Wrapper.class};
+    private static final Plugin DEFAULT_PLUGIN = new DefaultPlugin();
+    private static final SpecialPlugin[] SPECIAL_PLUGINS = {new WrapperPlugin()};
+
+
+    static boolean isMarkedAsPseudo(AnnotatedConstruct type) {
+        return type.getAnnotation(Pseudo.class) != null;
+    }
 
 
     @Override
@@ -40,50 +45,47 @@ public class Processor extends BasicProcessor {
 
         if (roundEnv.getRootElements().isEmpty()) return false;
 
-        Name pseudoclassesPkgName = helper.getName("wn.pseudoclasses");
+      //Name pseudoclassesPkgName = helper.getName("wn.pseudoclasses");
         TypeMirror object = helper.asType(Object.class);
 
-        List<TypeElement> pseudoClasses = collectClasses(roundEnv);
+        Map<TypeMirror, Plugin> plugins = new IdentityHashMap<>(SPECIAL_PLUGINS.length);
+        for (SpecialPlugin plugin : SPECIAL_PLUGINS) {
+            plugins.put(helper.asType(plugin.basicType()), plugin);
+        }
 
-        Set<TypeMirror> pseudotypes = Stream.of(PSEUDOTYPES).map(helper::asType).collect(Collectors.toSet());
+        List<TypeElement> classes = collectClasses(roundEnv);
+        Map<Plugin,List<Symbol>> distribution = new HashMap<>();
 
-        pseudoClasses.forEach(type -> {
+
+        classes.forEach(type -> {
             TypeMirror superclass = type.getSuperclass();
-            boolean markedAsPseudo = type.getAnnotation(Pseudo.class) != null;
-            boolean extendsPseudotype = superclass != object
-                    && (pseudotypes.contains(superclass) || superclass.getAnnotation(Pseudo.class) != null);
-            if (extendsPseudotype != markedAsPseudo && superclass != object) {
-                if (markedAsPseudo) {
-                    helper.printError("Pseudo superclass expected", type);
-                } else {
-                    helper.printError("Missing @Pseudo annotation", type);
-                }
+            boolean markedAsPseudo = isMarkedAsPseudo(type);
+            boolean extendsPseudotype = isMarkedAsPseudo(superclass);
+            if (extendsPseudotype && !markedAsPseudo) {
+                helper.printError("Missing @Pseudo annotation", type);
+                return;
             }
-//            Name superclassPkgName = helper.getName(superclass == null ? null : helper.asElement(superclass).getEnclosingElement());
-//            System.out.println(superclassPkgName);
-//            System.out.println("pseudoclass " + type + ": " + superclass + " (" + (superclassPkgName == pseudoclassesPkgName) + ')');
+            if (!markedAsPseudo) return;
+            if (!extendsPseudotype) {
+                int fieldCount = (int) type.getEnclosedElements().stream()
+                        .filter(member -> member.getKind() == ElementKind.FIELD)
+                        .peek(filed -> helper.printError("Filed declaration is not allowed here", filed))
+                        .count();
+                if (fieldCount != 0) return;
+            }
+            if (!(type instanceof Symbol)) throw new AssertionError();
+            distribution.compute(DEFAULT_PLUGIN, (plugin, list) -> list != null ? list : new ArrayList<>())
+                    .add((Symbol) type);
         });
 
+        System.out.println(distribution);
 
-//        Name pseudoclassesPkgName = helper.getName("wn.pseudoclasses");
-//        HashMap<Name,TypeElement> pseudoclassTree = new HashMap<>();
-//
-//        List<TypeElement> classes = collectClasses(roundEnv);
-//
-//
-//
-//
-//
-//        Predicate<ImportTree> pseudoImport = imp -> {
-//            Tree id = imp.getQualifiedIdentifier();
-//            if (imp.isStatic()) {
-//                MemberSelectTree ref = (MemberSelectTree) id;
-//                ref.getIdentifier().
-//                return ref.getIdentifier() == optName && JavacUtils.typeOf(ref.getExpression()) == operatorsType;
-//            } else {
-//                return JavacUtils.typeOf(id) == operatorsType;
-//            }
-//        };
+        distribution.forEach((plugin, types) -> types.forEach(t -> {
+            Tree tree = helper.getTreeUtils().getTree(t);
+            if (tree == null) throw new AssertionError();
+            CompilationUnitTree unit = helper.getUnit((TypeElement) t);
+            Editors.filterTree(unit, true, node -> node != tree);
+        }));
 
         return false;
     }

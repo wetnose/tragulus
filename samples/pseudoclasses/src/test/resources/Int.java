@@ -9,9 +9,9 @@ import wn.pseudoclasses.Wrapper;
 @Pseudo
 public class Int extends Wrapper {
 
-    final int value;
-
-    public Int(int value) {
-        this.value = value;
-    }
+//    final int value;
+//
+//    public Int(int value) {
+//        this.value = value;
+//    }
 }
