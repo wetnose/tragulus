@@ -1,6 +1,8 @@
 package wn.pseudoclasses;
 
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ImportTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree;
@@ -8,6 +10,8 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.TreeTranslator;
 import wn.tragulus.BasicProcessor;
 import wn.tragulus.Editors;
+import wn.tragulus.JavacUtils;
+import wn.tragulus.ProcessingHelper;
 
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.AnnotatedConstruct;
@@ -18,10 +22,14 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -40,6 +48,11 @@ public class Processor extends BasicProcessor {
     }
 
 
+    ProcessingHelper helper() {
+        return helper;
+    }
+
+
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
 
@@ -54,11 +67,11 @@ public class Processor extends BasicProcessor {
         }
 
         List<TypeElement> classes = collectClasses(roundEnv);
-        Map<Plugin,List<Symbol>> distribution = new HashMap<>();
+        Map<Plugin,List<TypeElement>> distribution = new HashMap<>();
 
 
         classes.forEach(type -> {
-            TypeMirror superclass = type.getSuperclass();
+            Element superclass = helper.asElement(type.getSuperclass());
             boolean markedAsPseudo = isMarkedAsPseudo(type);
             boolean extendsPseudotype = isMarkedAsPseudo(superclass);
             if (extendsPseudotype && !markedAsPseudo) {
@@ -75,15 +88,52 @@ public class Processor extends BasicProcessor {
             }
             if (!(type instanceof Symbol)) throw new AssertionError();
             distribution.compute(DEFAULT_PLUGIN, (plugin, list) -> list != null ? list : new ArrayList<>())
-                    .add((Symbol) type);
+                    .add(type);
         });
 
         System.out.println(distribution);
 
+        distribution.forEach((plugin, types) -> {
+
+            Set<TypeMirror> pseudoTypes = types.stream().map(Element::asType).collect(Collectors.toSet());
+            Set<TypeMirror> validated = new LinkedHashSet<>(pseudoTypes.size());
+
+            class Validator implements Consumer<TypeMirror> {
+                boolean valid = true;
+                @Override
+                public void accept(TypeMirror t) {
+                    if (validated.contains(t)) return;
+                    TypeMirror supertype = helper.getSupertype(t);
+                    if (pseudoTypes.contains(supertype)) accept(supertype);
+                    if (!plugin.validate(helper, (TypeElement) helper.asElement(t))) valid = false;
+                    validated.add(t);
+                }
+            }
+
+            Validator validator = new Validator();
+            pseudoTypes.forEach(validator);
+
+            if (!validator.valid) return;
+
+            Map<TypeMirror,Set<CompilationUnitTree>> usages = new HashMap<>();
+
+            collectCompilationUnits(roundEnv, unit -> true).forEach(unit -> {
+                unit.getImports().forEach(imp -> {
+                    Tree id = imp.getQualifiedIdentifier();
+                    TypeMirror ref = JavacUtils.typeOf(imp.isStatic() ? ((MemberSelectTree) id).getExpression() : id);
+                    if (pseudoTypes.contains(ref)) {
+                        usages.compute(ref, (type, using) -> using != null ? using : new HashSet<>()).add(unit);
+                    }
+                });
+            });
+
+            plugin.process(helper, usages);
+        });
+
         distribution.forEach((plugin, types) -> types.forEach(t -> {
             Tree tree = helper.getTreeUtils().getTree(t);
             if (tree == null) throw new AssertionError();
-            CompilationUnitTree unit = helper.getUnit((TypeElement) t);
+            CompilationUnitTree unit = helper.getUnit(t);
             Editors.filterTree(unit, true, node -> node != tree);
         }));
 

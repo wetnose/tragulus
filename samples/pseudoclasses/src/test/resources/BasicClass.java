@@ -4,4 +4,15 @@
  * Time: 8:57 PM
  */
 public class BasicClass {
+
+    protected int protectedField;
+
+    public void publicMethod() {
+    }
+
+    protected void protectedMethod() {
+    }
+
+    void packagePrivateMethod() {
+    }
 }
