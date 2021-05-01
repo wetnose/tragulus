@@ -1,24 +1,17 @@
 package wn.pseudoclasses;
 
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
-import com.sun.tools.javac.tree.TreeTranslator;
 import wn.tragulus.BasicProcessor;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
-import wn.tragulus.ProcessingHelper;
 
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.AnnotatedConstruct;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -45,11 +37,6 @@ public class Processor extends BasicProcessor {
 
     static boolean isMarkedAsPseudo(AnnotatedConstruct type) {
         return type.getAnnotation(Pseudo.class) != null;
-    }
-
-
-    ProcessingHelper helper() {
-        return helper;
     }
 
 
@@ -74,17 +61,12 @@ public class Processor extends BasicProcessor {
             Element superclass = helper.asElement(type.getSuperclass());
             boolean markedAsPseudo = isMarkedAsPseudo(type);
             boolean extendsPseudotype = isMarkedAsPseudo(superclass);
-            if (extendsPseudotype && !markedAsPseudo) {
-                helper.printError("Missing @Pseudo annotation", type);
-                return;
-            }
-            if (!markedAsPseudo) return;
-            if (!extendsPseudotype) {
-                int fieldCount = (int) type.getEnclosedElements().stream()
-                        .filter(member -> member.getKind() == ElementKind.FIELD)
-                        .peek(filed -> helper.printError("Filed declaration is not allowed here", filed))
-                        .count();
-                if (fieldCount != 0) return;
+            if (!markedAsPseudo) {
+                if (extendsPseudotype) {
+                    helper.printError("Missing @Pseudo annotation", type);
+                } else {
+                    return;
+                }
             }
             if (!(type instanceof Symbol)) throw new AssertionError();
             distribution.compute(DEFAULT_PLUGIN, (plugin, list) -> list != null ? list : new ArrayList<>())

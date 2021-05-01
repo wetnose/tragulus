@@ -38,6 +38,11 @@ public class DefaultPlugin implements Plugin {
 
     @Override
     public boolean validate(ProcessingHelper helper, TypeElement type) {
+        int fieldCount = (int) type.getEnclosedElements().stream()
+                .filter(member -> member.getKind() == ElementKind.FIELD)
+                .peek(filed -> helper.printError("filed declaration in a regular pseudoclass", filed))
+                .count();
+
         boolean pub = isPublic(type);
         Trees trees = helper.getTreeUtils();
         TreePath typePath = trees.getPath(type);
@@ -67,7 +72,7 @@ public class DefaultPlugin implements Plugin {
                                 }
                             }
                             helper.printError(
-                                    "No access to " + element.getKind().toString().toLowerCase() + " " + element, path);
+                                    "no access to " + element.getKind().toString().toLowerCase() + " " + element, path);
                             valid = false;
                         }
                         //System.out.println(node + ", " + id + ", " + element.getEnclosingElement());
@@ -78,7 +83,7 @@ public class DefaultPlugin implements Plugin {
         }
         Walker walker = new Walker();
         walkOver(trees.getPath(type), walker);
-        return walker.valid;
+        return fieldCount == 0 && walker.valid;
     }
 
 

@@ -8,6 +8,8 @@ import wn.pseudoclasses.Pseudo;
 @Pseudo
 public class Extension extends BasicClass {
 
+    //int xxx;
+
     public void test1() {
         publicMethod();
         //protectedMethod();
