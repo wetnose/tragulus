@@ -6,10 +6,12 @@ import com.sun.source.tree.Scope;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacScope;
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
+import com.sun.tools.javac.model.JavacTypes;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.Context;
@@ -29,6 +31,7 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Set;
 
 
 /**
@@ -53,7 +56,7 @@ public class ProcessingHelper {
     }
 
 
-    Context context() {
+    public Context context() {
         return ((JavacProcessingEnvironment) env).getContext();
     }
 
@@ -303,5 +306,10 @@ public class ProcessingHelper {
 
     private Env<AttrContext> getEnv(TreePath path) {
         return ((JavacScope) trees.getScope(path)).getEnv();
+    }
+
+
+    public Set<MethodSymbol> getOverriddenMethods(Element element) {
+        return ((JavacTypes) types).getOverriddenMethods(element);
     }
 }

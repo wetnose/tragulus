@@ -6,7 +6,7 @@ import wn.pseudoclasses.Pseudo;
  * Time: 1:21 AM
  */
 @Pseudo
-public class Extension extends BasicClass {
+public abstract class Extension extends BasicClass {
 
     //int xxx;
 
@@ -15,4 +15,7 @@ public class Extension extends BasicClass {
         //protectedMethod();
         //System.out.println(protectedField);
     }
+
+
+    public abstract void abstractMethod();
 }

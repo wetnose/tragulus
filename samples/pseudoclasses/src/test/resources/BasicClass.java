@@ -15,4 +15,8 @@ public class BasicClass {
 
     void packagePrivateMethod() {
     }
+
+    public void basicMethod() {
+        System.out.println("BasicClass.abstractMethod");
+    }
 }

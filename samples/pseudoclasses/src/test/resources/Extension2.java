@@ -8,5 +8,8 @@ import wn.pseudoclasses.Pseudo;
 @Pseudo
 public class Extension2 extends Extension {
 
-
+    @Override
+    public void abstractMethod() {
+        System.out.println("Extension2.abstractMethod");
+    }
 }

@@ -5,6 +5,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import wn.tragulus.JavacUtils;
 import wn.tragulus.ProcessingHelper;
 
@@ -18,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import static com.sun.tools.javac.code.Flags.ABSTRACT;
 import static wn.tragulus.JavacUtils.walkOver;
 
 /**
@@ -76,6 +78,17 @@ public class DefaultPlugin implements Plugin {
                             valid = false;
                         }
                         //System.out.println(node + ", " + id + ", " + element.getEnclosingElement());
+                        break;
+                    }
+                    case METHOD: {
+                        TreePath path = walker.path();
+                        MethodSymbol method = (MethodSymbol) trees.getElement(path);
+                        for (MethodSymbol m : helper.getOverriddenMethods(method)) {
+                            if ((m.flags() & ABSTRACT) == 0 || !Processor.isMarkedAsPseudo(m.owner)) {
+                                helper.printError("method overriding not supported", method);
+                                break;
+                            }
+                        }
                         break;
                     }
                 }

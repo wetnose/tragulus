@@ -10,5 +10,6 @@ public class XXX {
 
     public static void main(String[] args) throws Exception {
         JavacUtils.complile("/Users/asoloviev/work/jobbing/tragulus/samples/pseudoclasses/src/test/resources", new Processor());
+        //JavacUtils.complile("/Users/asoloviev/work/jobbing/tragulus/samples/pseudoclasses/src/test/resources", new Processor2());
     }
 }

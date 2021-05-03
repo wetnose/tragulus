@@ -10,7 +10,7 @@ import java.util.Collection;
  * Created by Alexander A. Solovioff
  * 05.08.2018
  */
-class JCUtils {
+public class JCUtils {
 
     public static <S,T extends S> List<T> toJCList(Iterable<? extends S> expr) {
         //noinspection unchecked
