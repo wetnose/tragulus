@@ -15,6 +15,7 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
+import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
@@ -24,6 +25,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -38,24 +41,43 @@ import static wn.tragulus.Editors.replaceTree;
  */
 public class JavacUtils {
 
+    public static final int OPT_PROCESS_ERRORS = 1;
+
+
     public static boolean complile(String srcDir, Processor processor) throws IOException {
-        return complile(srcDir, "tmp", processor);
+        return complile(srcDir, 0, processor);
     }
 
-    public static boolean complile(String srcDir, String outDir, Processor processor) throws IOException {
+
+    public static boolean complile(String srcDir, int opt, Processor processor) throws IOException {
+        return complile(srcDir, "tmp", opt, processor);
+    }
+
+    public static boolean complile(String srcDir, String outDir, int opt, Processor processor) throws IOException {
         ArrayList<File> src = new ArrayList<>();
         collectJavaFiles(new File(srcDir), src);
-        return complile(src, new File(outDir), processor);
+        return complile(src, new File(outDir), opt, processor);
     }
 
 
-    public static boolean complile(Collection<File> javaFiles, File outDir, Processor processor) throws IOException {
+    public static boolean complile(Collection<File> javaFiles, File outDir, int opt, Processor processor) throws IOException {
         if (!emptyDir(outDir)) throw new IOException("Cannot empty " + outDir);
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics, null, null);
         fileManager.setLocation(StandardLocation.CLASS_OUTPUT, singletonList(outDir));
-        JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, diagnostics, null, null, fileManager.getJavaFileObjectsFromFiles(javaFiles));
+        Set<String> options;
+        if (opt == 0) {
+            options = null;
+        } else {
+            options = new HashSet<>();
+            if ((opt & OPT_PROCESS_ERRORS) != 0) {
+                options.add("-XDshouldStopPolicyIfError=PROCESS");
+            }
+        }
+        //((com.sun.tools.javac.main.JavaCompiler) compiler).shouldStopPolicyIfError = CompileStates.CompileState.INIT;
+        JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, diagnostics, options, null, fileManager.getJavaFileObjectsFromFiles(javaFiles));
+        //Options.instance(((BasicJavacTask) task).getContext()).put("shouldStopPolicyIfError", "PROCESS");
         if (processor != null) task.setProcessors(singletonList(processor));
         boolean success = task.call();
         for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {

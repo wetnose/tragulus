@@ -1,6 +1,7 @@
 package wn.pseudoclasses;
 
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
@@ -13,6 +14,7 @@ import javax.lang.model.AnnotatedConstruct;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+import javax.tools.JavaFileObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,7 +22,9 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -34,6 +38,8 @@ public class Processor extends BasicProcessor {
     private static final Plugin DEFAULT_PLUGIN = new DefaultPlugin();
     private static final SpecialPlugin[] SPECIAL_PLUGINS = {new WrapperPlugin()};
 
+    private static final String ERR_INHERIT_FROM_FINAL = "compiler.err.cant.inherit.from.final";
+
 
     static boolean isMarkedAsPseudo(AnnotatedConstruct type) {
         return type.getAnnotation(Pseudo.class) != null;
@@ -44,6 +50,9 @@ public class Processor extends BasicProcessor {
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
 
         if (roundEnv.getRootElements().isEmpty()) return false;
+
+
+//        helper.context()
 
       //Name pseudoclassesPkgName = helper.getName("wn.pseudoclasses");
         TypeMirror object = helper.asType(Object.class);
@@ -58,7 +67,7 @@ public class Processor extends BasicProcessor {
 
 
         classes.forEach(type -> {
-            Element superclass = helper.asElement(type.getSuperclass());
+            TypeElement superclass = (TypeElement) helper.asElement(type.getSuperclass());
             boolean markedAsPseudo = isMarkedAsPseudo(type);
             boolean extendsPseudotype = isMarkedAsPseudo(superclass);
             if (!markedAsPseudo) {
@@ -66,6 +75,12 @@ public class Processor extends BasicProcessor {
                     helper.printError("Missing @Pseudo annotation", type);
                 } else {
                     return;
+                }
+            } else {
+                if (!extendsPseudotype && helper.isFinal(superclass)) {
+                    CompilationUnitTree unit = helper.getUnit(type);
+                    JavaFileObject src = unit.getSourceFile();
+                    helper.filterDiagnostics(d -> d.getSource() == src && d.getCode().equals(ERR_INHERIT_FROM_FINAL));
                 }
             }
             if (!(type instanceof Symbol)) throw new AssertionError();
@@ -98,18 +113,29 @@ public class Processor extends BasicProcessor {
             if (!validator.valid) return;
 
             Map<TypeMirror,Set<CompilationUnitTree>> usages = new HashMap<>();
+            BiConsumer<TypeMirror,CompilationUnitTree> distribute = (ref, unit) ->
+                    usages.compute(ref, (type, using) -> using != null ? using : new HashSet<>()).add(unit);
 
             collectCompilationUnits(roundEnv, unit -> true).forEach(unit -> {
                 unit.getImports().forEach(imp -> {
                     Tree id = imp.getQualifiedIdentifier();
                     TypeMirror ref = JavacUtils.typeOf(imp.isStatic() ? ((MemberSelectTree) id).getExpression() : id);
                     if (pseudoTypes.contains(ref)) {
-                        usages.compute(ref, (type, using) -> using != null ? using : new HashSet<>()).add(unit);
+                        distribute.accept(ref, unit);
                     }
                 });
+
+                ExpressionTree unitPkg = unit.getPackageName();
+                pseudoTypes.forEach(ref -> {
+                    ExpressionTree refPkg = helper.getUnit(ref).getPackageName();
+                    if (Objects.equals(refPkg, unitPkg)) {
+                        distribute.accept(ref, unit);
+                    }
+                });
+
             });
 
-            plugin.process(helper, usages);
+            //plugin.process(helper, usages);
         });
 
         distribution.forEach((plugin, types) -> types.forEach(t -> {
@@ -117,7 +143,29 @@ public class Processor extends BasicProcessor {
             if (tree == null) throw new AssertionError();
             CompilationUnitTree unit = helper.getUnit(t);
             Editors.filterTree(unit, true, node -> node != tree);
+//            ClassSymbol symbol = (ClassSymbol) t;
+//            System.out.println(t.getSimpleName() + " -> " + Flags.toString(symbol.flags()));
+//            try(Writer w = symbol.classfile.openWriter()) {
+//                //w.close();
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
+//            Editors.filterTree(unit, true, node -> {
+//                if (node == tree) {
+//                    JCClassDecl decl = (JCClassDecl) node;
+//                    decl.extending = null;
+//                    decl.defs = com.sun.tools.javac.util.List.nil();
+//                }
+//                return true;
+//            });
+//            //((JCCompilationUnit) unit).defs = com.sun.tools.javac.util.List.of(((JCCompilationUnit) unit).defs.head);
         }));
+
+//        //helper.getDiagnosticQ().clear();
+//        helper.getDiagnosticQ().forEach(d -> {
+//            System.out.println(d.getCode());
+//            //((JCDiagnostic) d).ge;
+//        });
 
         return false;
     }

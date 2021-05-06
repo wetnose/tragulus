@@ -12,12 +12,14 @@ import wn.tragulus.ProcessingHelper;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.sun.tools.javac.code.Flags.ABSTRACT;
 import static wn.tragulus.JavacUtils.walkOver;
@@ -103,6 +105,26 @@ public class DefaultPlugin implements Plugin {
     @Override
     public void process(ProcessingHelper helper, Map<TypeMirror, Set<CompilationUnitTree>> usages) {
 
-
+        Set<Name> classNames = usages.keySet().stream().map(helper::getName).collect(Collectors.toSet());
+        System.out.println(classNames);
+//        usages.keySet().forEach(t -> {
+//            CompilationUnitTree unit = helper.getUnit(t);
+//            ((JCTree) unit).accept(new TreeTranslator() {
+//                @Override
+//                public void visitTopLevel(JCTree.JCCompilationUnit cu) {
+//                    cu.defs = List.nil();
+//                    result = cu;
+//                }
+//            });
+//            System.out.println(unit.getSourceFile());
+//            System.out.println(unit);
+//        });
+//        usages.keySet().forEach(t -> {
+//            TypeMirror basic = helper.getSupertype(t);
+//            TypeElement element = (TypeElement) helper.asElement(basic);
+//            if (element instanceof DelegatedSymbol && (((Symbol) helper.asElement(basic)).flags() & FINAL) != 0) {
+//                ((Symbol) element).flags_field &= ~FINAL;
+//            }
+//        });
     }
 }

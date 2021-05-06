@@ -6,6 +6,8 @@ import com.sun.source.tree.Scope;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacScope;
+import com.sun.tools.javac.code.Flags;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.comp.Attr;
@@ -15,6 +17,10 @@ import com.sun.tools.javac.model.JavacTypes;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.JCDiagnostic;
+import com.sun.tools.javac.util.Log;
+import com.sun.tools.javac.util.Log.DeferredDiagnosticHandler;
+import com.sun.tools.javac.util.Log.DiagnosticHandler;
 
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -29,9 +35,12 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Queue;
 import java.util.Set;
+import java.util.function.Predicate;
 
 
 /**
@@ -216,7 +225,14 @@ public class ProcessingHelper {
 
 
     public CompilationUnitTree getUnit(TypeElement type) {
-        return trees.getPath(type).getCompilationUnit();
+        TreePath path = trees.getPath(type);
+        return path == null ? null : path.getCompilationUnit();
+    }
+
+
+    public CompilationUnitTree getUnit(TypeMirror type) {
+        TypeElement element = (TypeElement) asElement(type);
+        return element == null ? null : getUnit(element);
     }
 
 
@@ -311,5 +327,42 @@ public class ProcessingHelper {
 
     public Set<MethodSymbol> getOverriddenMethods(Element element) {
         return ((JavacTypes) types).getOverriddenMethods(element);
+    }
+
+
+    public boolean isFinal(TypeElement element) {
+        return (((Symbol.ClassSymbol) element).flags() & Flags.FINAL) != 0;
+    }
+
+
+    private Queue<JCDiagnostic> getDiagnostics() {
+        class Recoverer extends DeferredDiagnosticHandler {
+            public DiagnosticHandler recoveredHandler() {
+                return prev;
+            }
+            public Recoverer(Log log) {
+                super(log);
+                log.popDiagnosticHandler(this);
+            }
+        }
+        Log log = Log.instance(context());
+        Recoverer recoverer = new Recoverer(log);
+        DeferredDiagnosticHandler recoveredHandler = (DeferredDiagnosticHandler) recoverer.recoveredHandler();
+        return recoveredHandler.getDiagnostics();
+    }
+
+
+    public Queue<? extends Diagnostic<JavaFileObject>> getDiagnosticQ() {
+        return getDiagnostics();
+    }
+
+
+    public void filterDiagnostics(Predicate<Diagnostic<JavaFileObject>> filter) {
+        Queue<JCDiagnostic> queue = getDiagnostics();
+        ArrayList<JCDiagnostic> tmp = new ArrayList<>(queue);
+        if (tmp.removeIf(filter)) {
+            queue.clear();
+            queue.addAll(tmp);
+        }
     }
 }
