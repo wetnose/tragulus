@@ -10,7 +10,6 @@ import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
 
 import javax.annotation.processing.RoundEnvironment;
-import javax.lang.model.AnnotatedConstruct;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
@@ -41,7 +40,7 @@ public class Processor extends BasicProcessor {
     private static final String ERR_INHERIT_FROM_FINAL = "compiler.err.cant.inherit.from.final";
 
 
-    static boolean isMarkedAsPseudo(AnnotatedConstruct type) {
+    static boolean isMarkedAsPseudo(TypeElement type) {
         return type.getAnnotation(Pseudo.class) != null;
     }
 
@@ -90,6 +89,8 @@ public class Processor extends BasicProcessor {
 
         System.out.println(distribution);
 
+        Map<Plugin,Map<TypeMirror,Set<CompilationUnitTree>>> usages = new HashMap<>();
+
         distribution.forEach((plugin, types) -> {
 
             Set<TypeMirror> pseudoTypes = types.stream().map(Element::asType).collect(Collectors.toSet());
@@ -112,9 +113,9 @@ public class Processor extends BasicProcessor {
 
             if (!validator.valid) return;
 
-            Map<TypeMirror,Set<CompilationUnitTree>> usages = new HashMap<>();
+            Map<TypeMirror,Set<CompilationUnitTree>> use = new HashMap<>();
             BiConsumer<TypeMirror,CompilationUnitTree> distribute = (ref, unit) ->
-                    usages.compute(ref, (type, using) -> using != null ? using : new HashSet<>()).add(unit);
+                    use.compute(ref, (type, using) -> using != null ? using : new HashSet<>()).add(unit);
 
             collectCompilationUnits(roundEnv, unit -> true).forEach(unit -> {
                 unit.getImports().forEach(imp -> {
@@ -135,37 +136,20 @@ public class Processor extends BasicProcessor {
 
             });
 
-            //plugin.process(helper, usages);
+            usages.put(plugin, use);
         });
+
+        if (helper.getDiagnosticQ().isEmpty()) {
+            usages.forEach((plugin, use) -> plugin.process(helper, use));
+        }
+
 
         distribution.forEach((plugin, types) -> types.forEach(t -> {
             Tree tree = helper.getTreeUtils().getTree(t);
             if (tree == null) throw new AssertionError();
             CompilationUnitTree unit = helper.getUnit(t);
             Editors.filterTree(unit, true, node -> node != tree);
-//            ClassSymbol symbol = (ClassSymbol) t;
-//            System.out.println(t.getSimpleName() + " -> " + Flags.toString(symbol.flags()));
-//            try(Writer w = symbol.classfile.openWriter()) {
-//                //w.close();
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
-//            Editors.filterTree(unit, true, node -> {
-//                if (node == tree) {
-//                    JCClassDecl decl = (JCClassDecl) node;
-//                    decl.extending = null;
-//                    decl.defs = com.sun.tools.javac.util.List.nil();
-//                }
-//                return true;
-//            });
-//            //((JCCompilationUnit) unit).defs = com.sun.tools.javac.util.List.of(((JCCompilationUnit) unit).defs.head);
         }));
-
-//        //helper.getDiagnosticQ().clear();
-//        helper.getDiagnosticQ().forEach(d -> {
-//            System.out.println(d.getCode());
-//            //((JCDiagnostic) d).ge;
-//        });
 
         return false;
     }

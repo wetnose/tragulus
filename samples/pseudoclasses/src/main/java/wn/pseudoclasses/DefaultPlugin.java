@@ -1,13 +1,17 @@
 package wn.pseudoclasses;
 
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
 import wn.tragulus.ProcessingHelper;
+import wn.tragulus.TreeAssembler;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -86,7 +90,7 @@ public class DefaultPlugin implements Plugin {
                         TreePath path = walker.path();
                         MethodSymbol method = (MethodSymbol) trees.getElement(path);
                         for (MethodSymbol m : helper.getOverriddenMethods(method)) {
-                            if ((m.flags() & ABSTRACT) == 0 || !Processor.isMarkedAsPseudo(m.owner)) {
+                            if ((m.flags() & ABSTRACT) == 0 || !Processor.isMarkedAsPseudo((TypeElement) m.owner)) {
                                 helper.printError("method overriding not supported", method);
                                 break;
                             }
@@ -107,24 +111,32 @@ public class DefaultPlugin implements Plugin {
 
         Set<Name> classNames = usages.keySet().stream().map(helper::getName).collect(Collectors.toSet());
         System.out.println(classNames);
-//        usages.keySet().forEach(t -> {
-//            CompilationUnitTree unit = helper.getUnit(t);
-//            ((JCTree) unit).accept(new TreeTranslator() {
-//                @Override
-//                public void visitTopLevel(JCTree.JCCompilationUnit cu) {
-//                    cu.defs = List.nil();
-//                    result = cu;
-//                }
-//            });
-//            System.out.println(unit.getSourceFile());
-//            System.out.println(unit);
-//        });
-//        usages.keySet().forEach(t -> {
-//            TypeMirror basic = helper.getSupertype(t);
-//            TypeElement element = (TypeElement) helper.asElement(basic);
-//            if (element instanceof DelegatedSymbol && (((Symbol) helper.asElement(basic)).flags() & FINAL) != 0) {
-//                ((Symbol) element).flags_field &= ~FINAL;
-//            }
-//        });
+
+        TreeAssembler asm = helper.newAssembler();
+
+        usages.forEach((t, units) -> {
+            TypeMirror rep = t;
+            while (Processor.isMarkedAsPseudo((TypeElement) helper.asElement(rep)) || usages.containsKey(rep)) {
+                rep = helper.getSupertype(rep);
+            }
+            TypeMirror replace = rep;
+            units.forEach(unit -> {
+                unit.getTypeDecls().forEach(tree -> {
+                    ((ClassTree) tree).getMembers().forEach(member -> {
+                        if (member.getKind() != Tree.Kind.VARIABLE) return;
+                        TypeMirror type = helper.asType(unit, member);
+                        if (type == t) {
+                            Editors.setType((VariableTree) member, asm.type(replace).asExpr());
+                        }
+                    });
+                });
+            });
+        });
+
+        usages.keySet().forEach(t -> {
+            TypeMirror basic = helper.getSupertype(t);
+            TypeElement element = (TypeElement) helper.asElement(basic);
+            helper.setFinal(element, false);
+        });
     }
 }

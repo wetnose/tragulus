@@ -3,6 +3,7 @@ package wn.tragulus;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.Scope;
+import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacScope;
@@ -36,6 +37,7 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
+import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Queue;
@@ -215,6 +217,17 @@ public class ProcessingHelper {
     }
 
 
+    public Element asElement(CompilationUnitTree unit, Tree tree) {
+        return trees.getElement(trees.getPath(unit, tree));
+    }
+
+
+    public TypeMirror asType(CompilationUnitTree unit, Tree tree) {
+        Element element = asElement(unit, tree);
+        return element == null ? null : element.asType();
+    }
+
+
     public TypeMirror getSupertype(TypeMirror type) {
         return com.sun.tools.javac.code.Types.instance(context()).supertype((Type) type);
 //        for (TypeMirror t : types.directSupertypes(type)) {
@@ -331,7 +344,17 @@ public class ProcessingHelper {
 
 
     public boolean isFinal(TypeElement element) {
-        return (((Symbol.ClassSymbol) element).flags() & Flags.FINAL) != 0;
+        return (((Symbol) element).flags() & Flags.FINAL) != 0;
+    }
+
+
+    public boolean setFinal(TypeElement element, boolean finl) {
+        Symbol symbol = (Symbol) element;
+        long old = symbol.flags_field;
+        long upd = finl ? old | Flags.FINAL : old & ~Flags.FINAL;
+        if (upd == old) return false;
+        symbol.flags_field = upd;
+        return true;
     }
 
 
