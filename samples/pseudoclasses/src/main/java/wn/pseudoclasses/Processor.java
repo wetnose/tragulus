@@ -27,6 +27,9 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import static wn.pseudoclasses.Utils.isMarkedAsPseudo;
+import static wn.pseudoclasses.Utils.isPseudoclass;
+
 /**
  * Alexander A. Solovioff
  * Date: 21.04.2021
@@ -39,11 +42,6 @@ public class Processor extends BasicProcessor {
 
     private static final String ERR_INHERIT_FROM_FINAL = "compiler.err.cant.inherit.from.final";
     private static final String ERR_PRIM_TYPE_ARG      = "compiler.err.type.found.req";
-
-
-    static boolean isMarkedAsPseudo(TypeElement type) {
-        return type.getAnnotation(Pseudo.class) != null;
-    }
 
 
     @Override
@@ -64,6 +62,7 @@ public class Processor extends BasicProcessor {
 
         // find pseudoclasses
         classes.forEach(type -> {
+            System.out.println(type + ": isPseudo = " + isPseudoclass(type));
             TypeElement superclass = helper.asElement(type.getSuperclass());
             boolean markedAsPseudo = isMarkedAsPseudo(type);
             boolean extendsPseudotype = isMarkedAsPseudo(superclass);

@@ -3,6 +3,7 @@ package wn.tragulus;
 import com.sun.source.tree.*;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
@@ -16,7 +17,6 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
-import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
@@ -353,5 +353,11 @@ public class JavacUtils {
 
     public static Tree getTree(Diagnostic<? extends JavaFileObject> diagnostic) {
         return ((JCDiagnostic) diagnostic).getDiagnosticPosition().getTree();
+    }
+
+
+    public static <E extends Element> E asElement(TypeMirror type) {
+        //noinspection unchecked
+        return (E) ((Type) type).asElement();
     }
 }

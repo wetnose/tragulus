@@ -25,6 +25,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.sun.tools.javac.code.Flags.ABSTRACT;
+import static wn.pseudoclasses.Utils.isMarkedAsPseudo;
 import static wn.tragulus.JavacUtils.walkOver;
 
 /**
@@ -89,7 +90,7 @@ public class DefaultPlugin implements Plugin {
                         TreePath path = walker.path();
                         MethodSymbol method = (MethodSymbol) trees.getElement(path);
                         for (MethodSymbol m : helper.getOverriddenMethods(method)) {
-                            if ((m.flags() & ABSTRACT) == 0 || !Processor.isMarkedAsPseudo((TypeElement) m.owner)) {
+                            if ((m.flags() & ABSTRACT) == 0 || !isMarkedAsPseudo((TypeElement) m.owner)) {
                                 helper.printError("method overriding not supported", method);
                                 break;
                             }
@@ -115,7 +116,7 @@ public class DefaultPlugin implements Plugin {
         usages.forEach(usage -> {
             TypeElement type = helper.asElement(usage.type);
             TypeElement rep = type;
-            while (Processor.isMarkedAsPseudo(rep) || types.contains(rep.asType())) {
+            while (isMarkedAsPseudo(rep) || types.contains(rep.asType())) {
                 rep = helper.asElement(rep.getSuperclass());
             }
             TypeElement replace = rep;
