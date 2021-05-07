@@ -1,7 +1,6 @@
 package wn.pseudoclasses;
 
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
@@ -16,12 +15,11 @@ import wn.tragulus.TreeAssembler;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import java.util.Map;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -108,21 +106,20 @@ public class DefaultPlugin implements Plugin {
 
 
     @Override
-    public void process(ProcessingHelper helper, Map<TypeMirror, Set<CompilationUnitTree>> usages) {
-
-        Set<Name> classNames = usages.keySet().stream().map(helper::getName).collect(Collectors.toSet());
-        System.out.println(classNames);
+    public void process(ProcessingHelper helper, List<TypeUsages> usages) {
 
         TreeAssembler asm = helper.newAssembler();
 
-        usages.forEach((t, units) -> {
-            TypeElement type = helper.asElement(t);
+        Set<TypeMirror> types = usages.stream().map(usage -> usage.type).collect(Collectors.toSet());
+
+        usages.forEach(usage -> {
+            TypeElement type = helper.asElement(usage.type);
             TypeElement rep = type;
-            while (Processor.isMarkedAsPseudo(rep) || usages.containsKey(rep.asType())) {
+            while (Processor.isMarkedAsPseudo(rep) || types.contains(rep.asType())) {
                 rep = helper.asElement(rep.getSuperclass());
             }
             TypeElement replace = rep;
-            units.forEach(unit -> {
+            usage.units.forEach(unit -> {
                 unit.getTypeDecls().forEach(tree -> {
                     ((ClassTree) tree).getMembers().forEach(member -> {
                         if (member.getKind() != Tree.Kind.VARIABLE) return;
@@ -134,12 +131,6 @@ public class DefaultPlugin implements Plugin {
                     });
                 });
             });
-        });
-
-        usages.keySet().forEach(t -> {
-            TypeMirror basic = helper.getSupertype(t);
-            TypeElement element = helper.asElement(basic);
-            helper.setFinal(element, false);
         });
     }
 }

@@ -18,7 +18,6 @@ import javax.tools.JavaFileObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -28,8 +27,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import static wn.tragulus.JavacUtils.walkOver;
-
 /**
  * Alexander A. Solovioff
  * Date: 21.04.2021
@@ -38,7 +35,7 @@ import static wn.tragulus.JavacUtils.walkOver;
 public class Processor extends BasicProcessor {
 
     private static final Plugin DEFAULT_PLUGIN = new DefaultPlugin();
-    private static final SpecialPlugin[] SPECIAL_PLUGINS = {new WrapperPlugin()};
+//    private static final SpecialPlugin[] SPECIAL_PLUGINS = {new WrapperPlugin()};
 
     private static final String ERR_INHERIT_FROM_FINAL = "compiler.err.cant.inherit.from.final";
     private static final String ERR_PRIM_TYPE_ARG      = "compiler.err.type.found.req";
@@ -56,21 +53,16 @@ public class Processor extends BasicProcessor {
 
         Trees trees = helper.getTreeUtils();
 
-//        helper.context()
-
-      //Name pseudoclassesPkgName = helper.getName("wn.pseudoclasses");
-        TypeMirror object = helper.asType(Object.class);
-
-        Map<TypeMirror, Plugin> plugins = new IdentityHashMap<>(SPECIAL_PLUGINS.length);
-        for (SpecialPlugin plugin : SPECIAL_PLUGINS) {
-            plugins.put(helper.asType(plugin.basicType()), plugin);
-        }
+//        Map<TypeMirror, Plugin> plugins = new IdentityHashMap<>(SPECIAL_PLUGINS.length);
+//        for (SpecialPlugin plugin : SPECIAL_PLUGINS) {
+//            plugins.put(helper.asType(plugin.basicType()), plugin);
+//        }
 
         List<TypeElement> classes = collectClasses(roundEnv);
         Map<Plugin,List<TypeElement>> distribution = new HashMap<>();
         Set<TypeElement> pseudoclasses = new HashSet<>();
 
-
+        // find pseudoclasses
         classes.forEach(type -> {
             TypeElement superclass = helper.asElement(type.getSuperclass());
             boolean markedAsPseudo = isMarkedAsPseudo(type);
@@ -116,7 +108,7 @@ public class Processor extends BasicProcessor {
 
         System.out.println(distribution);
 
-        Map<Plugin,Map<TypeMirror,Set<CompilationUnitTree>>> usages = new HashMap<>();
+        Map<Plugin,List<TypeUsages>> usages = new HashMap<>();
 
         distribution.forEach((plugin, types) -> {
 
@@ -140,9 +132,9 @@ public class Processor extends BasicProcessor {
 
             if (!validator.valid) return;
 
-            Map<TypeMirror,Set<CompilationUnitTree>> use = new HashMap<>();
+            Map<TypeMirror,TypeUsages> typeUsages = new HashMap<>();
             BiConsumer<TypeMirror,CompilationUnitTree> distribute = (ref, unit) ->
-                    use.compute(ref, (type, using) -> using != null ? using : new HashSet<>()).add(unit);
+                    typeUsages.compute(ref, (type, using) -> using != null ? using : new TypeUsages(type)).add(unit);
 
             collectCompilationUnits(roundEnv, unit -> true).forEach(unit -> {
                 unit.getImports().forEach(imp -> {
@@ -163,7 +155,7 @@ public class Processor extends BasicProcessor {
 
             });
 
-            usages.put(plugin, use);
+            usages.put(plugin, new ArrayList<>(typeUsages.values()));
         });
 
         if (helper.getDiagnosticQ().isEmpty()) {
