@@ -6,6 +6,7 @@ import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import com.sun.tools.javac.util.JCDiagnostic;
 
 import javax.annotation.processing.Processor;
 import javax.lang.model.element.Element;
@@ -347,5 +348,10 @@ public class JavacUtils {
                 node.type = null;
             }
         });
+    }
+
+
+    public static Tree getTree(Diagnostic<? extends JavaFileObject> diagnostic) {
+        return ((JCDiagnostic) diagnostic).getDiagnosticPosition().getTree();
     }
 }

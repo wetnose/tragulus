@@ -6,7 +6,7 @@ import wn.pseudoclasses.Pseudo;
  * Time: 1:21 AM
  */
 @Pseudo
-public abstract class Extension extends BasicClass {
+public abstract class Extension<T> extends BasicClass {
 
     //int xxx;
 

@@ -18,6 +18,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import java.util.Map;
@@ -115,18 +116,20 @@ public class DefaultPlugin implements Plugin {
         TreeAssembler asm = helper.newAssembler();
 
         usages.forEach((t, units) -> {
-            TypeMirror rep = t;
-            while (Processor.isMarkedAsPseudo((TypeElement) helper.asElement(rep)) || usages.containsKey(rep)) {
-                rep = helper.getSupertype(rep);
+            TypeElement type = helper.asElement(t);
+            TypeElement rep = type;
+            while (Processor.isMarkedAsPseudo(rep) || usages.containsKey(rep.asType())) {
+                rep = helper.asElement(rep.getSuperclass());
             }
-            TypeMirror replace = rep;
+            TypeElement replace = rep;
             units.forEach(unit -> {
                 unit.getTypeDecls().forEach(tree -> {
                     ((ClassTree) tree).getMembers().forEach(member -> {
                         if (member.getKind() != Tree.Kind.VARIABLE) return;
-                        TypeMirror type = helper.asType(unit, member);
-                        if (type == t) {
-                            Editors.setType((VariableTree) member, asm.type(replace).asExpr());
+                        VariableElement var = helper.asElement(unit, member);
+                        TypeElement varType = helper.asElement(var.asType());
+                        if (type == varType) {
+                            Editors.setType((VariableTree) member, asm.type(replace.asType()).asExpr());
                         }
                     });
                 });
@@ -135,7 +138,7 @@ public class DefaultPlugin implements Plugin {
 
         usages.keySet().forEach(t -> {
             TypeMirror basic = helper.getSupertype(t);
-            TypeElement element = (TypeElement) helper.asElement(basic);
+            TypeElement element = helper.asElement(basic);
             helper.setFinal(element, false);
         });
     }

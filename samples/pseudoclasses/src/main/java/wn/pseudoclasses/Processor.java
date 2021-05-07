@@ -3,8 +3,9 @@ package wn.pseudoclasses;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
-import com.sun.tools.javac.code.Symbol;
+import com.sun.source.util.Trees;
 import wn.tragulus.BasicProcessor;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
@@ -27,6 +28,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import static wn.tragulus.JavacUtils.walkOver;
+
 /**
  * Alexander A. Solovioff
  * Date: 21.04.2021
@@ -38,6 +41,7 @@ public class Processor extends BasicProcessor {
     private static final SpecialPlugin[] SPECIAL_PLUGINS = {new WrapperPlugin()};
 
     private static final String ERR_INHERIT_FROM_FINAL = "compiler.err.cant.inherit.from.final";
+    private static final String ERR_PRIM_TYPE_ARG      = "compiler.err.type.found.req";
 
 
     static boolean isMarkedAsPseudo(TypeElement type) {
@@ -50,6 +54,7 @@ public class Processor extends BasicProcessor {
 
         if (roundEnv.getRootElements().isEmpty()) return false;
 
+        Trees trees = helper.getTreeUtils();
 
 //        helper.context()
 
@@ -63,10 +68,11 @@ public class Processor extends BasicProcessor {
 
         List<TypeElement> classes = collectClasses(roundEnv);
         Map<Plugin,List<TypeElement>> distribution = new HashMap<>();
+        Set<TypeElement> pseudoclasses = new HashSet<>();
 
 
         classes.forEach(type -> {
-            TypeElement superclass = (TypeElement) helper.asElement(type.getSuperclass());
+            TypeElement superclass = helper.asElement(type.getSuperclass());
             boolean markedAsPseudo = isMarkedAsPseudo(type);
             boolean extendsPseudotype = isMarkedAsPseudo(superclass);
             if (!markedAsPseudo) {
@@ -76,16 +82,37 @@ public class Processor extends BasicProcessor {
                     return;
                 }
             } else {
-                if (!extendsPseudotype && helper.isFinal(superclass)) {
-                    CompilationUnitTree unit = helper.getUnit(type);
-                    JavaFileObject src = unit.getSourceFile();
-                    helper.filterDiagnostics(d -> d.getSource() == src && d.getCode().equals(ERR_INHERIT_FROM_FINAL));
+                if (!extendsPseudotype) {
+                    if (helper.isFinal(superclass)) {
+                        CompilationUnitTree unit = helper.getUnit(type);
+                        JavaFileObject src = unit.getSourceFile();
+                        helper.filterDiagnostics(d -> d.getSource() == src && d.getCode().equals(ERR_INHERIT_FROM_FINAL));
+                    }
                 }
             }
-            if (!(type instanceof Symbol)) throw new AssertionError();
-            distribution.compute(DEFAULT_PLUGIN, (plugin, list) -> list != null ? list : new ArrayList<>())
-                    .add(type);
+            distribution.compute(DEFAULT_PLUGIN, (plugin, list) -> list != null ? list : new ArrayList<>()).add(type);
+            pseudoclasses.add(type);
         });
+
+        { // remove errors for expressions like "Type<int>"
+            Set<Tree> parametrizedTypePos = new HashSet<>();
+
+            classes.forEach(type -> {
+                JavacUtils.scan(trees.getTree(type), node -> {
+                    if (node.getKind() != Tree.Kind.PARAMETERIZED_TYPE) return;
+                    ParameterizedTypeTree parType = (ParameterizedTypeTree) node;
+                    if (!pseudoclasses.contains(helper.<TypeElement>asElement(JavacUtils.typeOf(parType)))) return;
+                    parType.getTypeArguments().forEach(arg -> {
+                        if (arg.getKind() == Tree.Kind.PRIMITIVE_TYPE) parametrizedTypePos.add(arg);
+                    });
+                });
+            });
+
+            helper.filterDiagnostics(diag -> {
+                Tree tree = JavacUtils.getTree(diag);
+                return diag.getCode().equals(ERR_PRIM_TYPE_ARG) && parametrizedTypePos.contains(tree);
+            });
+        }
 
         System.out.println(distribution);
 
@@ -103,7 +130,7 @@ public class Processor extends BasicProcessor {
                     if (validated.contains(t)) return;
                     TypeMirror supertype = helper.getSupertype(t);
                     if (pseudoTypes.contains(supertype)) accept(supertype);
-                    if (!plugin.validate(helper, (TypeElement) helper.asElement(t))) valid = false;
+                    if (!plugin.validate(helper, helper.asElement(t))) valid = false;
                     validated.add(t);
                 }
             }

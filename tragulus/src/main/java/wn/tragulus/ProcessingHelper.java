@@ -187,8 +187,9 @@ public class ProcessingHelper {
     }
 
 
-    public Element asElement(TypeMirror type) {
-        return types.asElement(type);
+    public <E extends Element> E asElement(TypeMirror type) {
+        //noinspection unchecked
+        return (E) types.asElement(type);
     }
 
 
@@ -217,8 +218,14 @@ public class ProcessingHelper {
     }
 
 
-    public Element asElement(CompilationUnitTree unit, Tree tree) {
-        return trees.getElement(trees.getPath(unit, tree));
+    public <E extends Element> E asElement(CompilationUnitTree unit, Tree tree) {
+        //noinspection unchecked
+        return asElement(trees.getPath(unit, tree));
+    }
+
+    public <E extends Element> E asElement(TreePath path) {
+        //noinspection unchecked
+        return (E) trees.getElement(path);
     }
 
 
