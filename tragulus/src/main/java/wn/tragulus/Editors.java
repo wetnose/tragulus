@@ -120,9 +120,9 @@ public class Editors {
         ((JCClassDecl) node).extending = (JCExpression) extendsClause;
     }
 
-    public static void setPackageName(CompilationUnitTree node, ExpressionTree packageName) {
-        ((JCCompilationUnit) node).pid = (JCExpression) packageName;
-    }
+//    public static void setPackageName(CompilationUnitTree node, ExpressionTree packageName) {
+//        ((JCCompilationUnit) node).pid = (JCExpression) packageName;
+//    }
 
     public static void setCondition(ConditionalExpressionTree node, ExpressionTree condition) {
         ((JCConditional) node).cond = (JCExpression) condition;

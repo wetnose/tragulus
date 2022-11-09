@@ -2,8 +2,24 @@ plugins {
     id 'java'
 }
 
+sourceCompatibility = '9'
+targetCompatibility = '9'
+
+compileJava {
+    options.compilerArgs = [
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=wn.tragulus",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=wn.tragulus",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.model=wn.tragulus",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=wn.tragulus",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.code=wn.tragulus",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.comp=wn.tragulus",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.parser=wn.tragulus",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.processing=wn.tragulus",
+    ]
+}
+
 dependencies {
-    compileOnly files("${System.getProperty('java.home')}/../lib/tools.jar")
+    //compileOnly files("${System.getProperty('java.home')}/../lib/tools.jar")
 }
 
 jar {

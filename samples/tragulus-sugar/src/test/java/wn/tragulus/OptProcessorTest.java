@@ -151,7 +151,7 @@ public class OptProcessorTest {
     private static boolean compile(String target, Processor processor) throws Exception {
         File javaFile = fileOf(target);
         File testDir = javaFile.getParentFile().getParentFile();
-        return JavacUtils.complile(singletonList(javaFile), new File(testDir, "tmp"), processor);
+        return JavacUtils.complile(singletonList(javaFile), new File(testDir, "tmp"), 0, processor);
     }
 
 

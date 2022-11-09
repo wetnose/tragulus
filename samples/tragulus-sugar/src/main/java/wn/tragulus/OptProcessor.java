@@ -8,8 +8,8 @@ import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 
 import javax.annotation.processing.RoundEnvironment;
-import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
@@ -33,6 +33,7 @@ import static wn.tragulus.JavacUtils.walkOver;
  * Created by Alexander A. Solovioff
  * 28.07.2018
  */
+@SupportedSourceVersion(SourceVersion.RELEASE_9)
 public class OptProcessor extends BasicProcessor {
 
     @Override

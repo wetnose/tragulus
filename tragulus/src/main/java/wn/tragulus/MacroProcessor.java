@@ -192,8 +192,8 @@ class MacroProcessor extends Visitor {
 
         @Override
         public void visitTopLevel(JCCompilationUnit unit) {
-            JCExpression anno = process(unit.packageAnnotations);
-            JCExpression pid  = process(unit.pid);
+            JCExpression anno = process(unit.getPackageAnnotations());
+            JCExpression pid  = process(unit.getPackage().pid);
             JCExpression defs = process(unit.defs);
             result = make("TopLevel", anno, pid, defs);
         }
