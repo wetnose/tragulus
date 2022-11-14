@@ -16,6 +16,7 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -160,7 +161,7 @@ public class Processor extends BasicProcessor {
             usages.put(plugin, new ArrayList<>(typeUsages.values()));
         });
 
-        if (helper.getDiagnosticQ().isEmpty()) {
+        if (helper.getDiagnosticQ().stream().noneMatch(diag -> diag.getKind() == Diagnostic.Kind.ERROR)) {
             usages.forEach((plugin, use) -> plugin.process(helper, use));
         }
 
@@ -170,6 +171,12 @@ public class Processor extends BasicProcessor {
             if (tree == null) throw new AssertionError();
             CompilationUnitTree unit = helper.getUnit(t);
             Editors.filterTree(unit, true, node -> node != tree);
+//            try {
+//                System.out.println("--------" + unit.getSourceFile());
+//                new com.sun.tools.javac.tree.Pretty(new OutputStreamWriter(System.out), true).print(unit);
+//            } catch (IOException e) {
+//                throw new AssertionError(e);
+//            }
         }));
 
         return false;

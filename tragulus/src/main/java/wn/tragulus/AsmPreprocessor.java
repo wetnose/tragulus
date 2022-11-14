@@ -80,7 +80,7 @@ public class AsmPreprocessor extends BasicProcessor {
                         && invSureTest.test(path = walker.path())) {
 
                     MethodInvocationTree inv = (MethodInvocationTree) node;
-                    System.out.println(inv);
+                    //System.out.println(inv);
                     List<? extends Tree> args = new ArrayList<>(inv.getArguments());
 
                     int argCount = args.size();
@@ -126,7 +126,7 @@ public class AsmPreprocessor extends BasicProcessor {
 
 //                    Scope scope = trees.getScope(srcArgPath);
 //                    System.out.println(scope);
-                    System.out.println(parsedTree);
+//                    System.out.println(parsedTree);
 
                     Map<String,VariableElement> srcScope = helper.getLocalElements(srcArgPath).stream()
                             .filter(JavacUtils::isVariableElement)
@@ -231,7 +231,7 @@ public class AsmPreprocessor extends BasicProcessor {
                     asm.declareVar(D, helper.asType(TreeAssembler.class), MEM);
                     asm.lambda(A, B, C, D);
 
-                    System.out.println(MacroProcessor.toString(asm.<JCTree>get()));
+                    //System.out.println(MacroProcessor.toString(asm.<JCTree>get()));
 
                     Editors.replaceTree(srcArgPath, asm.get());
                 }

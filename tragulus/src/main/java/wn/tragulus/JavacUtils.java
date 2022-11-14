@@ -8,6 +8,7 @@ import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.JCDiagnostic;
+import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 
 import javax.annotation.processing.Processor;
 import javax.lang.model.element.Element;
@@ -73,7 +74,8 @@ public class JavacUtils {
         } else {
             options = new HashSet<>();
             if ((opt & OPT_PROCESS_ERRORS) != 0) {
-                options.add("-XDshouldStopPolicyIfError=PROCESS");
+                options.add("-XDshouldStopPolicyIfError=PROCESS"); // JDK 1.8
+                options.add("-XDshould-stop.ifError=PROCESS");
             }
         }
         //((com.sun.tools.javac.main.JavaCompiler) compiler).shouldStopPolicyIfError = CompileStates.CompileState.INIT;
@@ -352,7 +354,8 @@ public class JavacUtils {
 
 
     public static Tree getTree(Diagnostic<? extends JavaFileObject> diagnostic) {
-        return ((JCDiagnostic) diagnostic).getDiagnosticPosition().getTree();
+        DiagnosticPosition position = ((JCDiagnostic) diagnostic).getDiagnosticPosition();
+        return position == null ? null : position.getTree();
     }
 
 

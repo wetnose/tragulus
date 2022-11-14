@@ -440,17 +440,15 @@ public class Editors {
             }
             @Override
             public <T extends JCTree> List<T> translate(List<T> list) {
-                for(List i = list; i.nonEmpty(); i = i.tail) {
-                    JCTree node = (JCTree) i.head;
+                for(List<T> i = list; i.nonEmpty(); i = i.tail) {
+                    T node = i.head;
                     if (!predicate.test(node)) {
                         List<T> res = List.nil();
-                        for(List j = list; j != i; j = j.tail) {
-                            //noinspection unchecked
-                            res.prepend((T) j.head);
+                        for(List<T> j = list; j != i; j = j.tail) {
+                            res.prepend(j.head);
                         }
-                        for(List j = i.tail; j.nonEmpty(); j = j.tail) {
-                            //noinspection unchecked
-                            T a = (T) j.head;
+                        for(List<T> j = i.tail; j.nonEmpty(); j = j.tail) {
+                            T a = j.head;
                             if (predicate.test(a)) {
                                 res = res.prepend(a);
                             }
