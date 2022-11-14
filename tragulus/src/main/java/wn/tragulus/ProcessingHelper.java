@@ -51,7 +51,7 @@ import java.util.function.Predicate;
 public class ProcessingHelper {
 
     ProcessingEnvironment env;
-    Messager log;
+    Messager messager;
     Trees trees;
     Types types;
     Elements elements;
@@ -59,7 +59,7 @@ public class ProcessingHelper {
 
     public ProcessingHelper(ProcessingEnvironment processingEnv) {
         env = processingEnv;
-        log = processingEnv.getMessager();
+        messager = processingEnv.getMessager();
         trees = Trees.instance(processingEnv);
         types = processingEnv.getTypeUtils();
         elements = processingEnv.getElementUtils();
@@ -72,7 +72,7 @@ public class ProcessingHelper {
 
 
     public Messager getMessager() {
-        return log;
+        return messager;
     }
 
 
@@ -131,6 +131,11 @@ public class ProcessingHelper {
     }
 
 
+    public void printWarning(CharSequence msg) {
+        messager.printMessage(Diagnostic.Kind.WARNING, msg);
+    }
+
+
     public void printNote(CharSequence msg, TreePath path) {
         printMessage(Diagnostic.Kind.NOTE, msg, path);
     }
@@ -141,13 +146,18 @@ public class ProcessingHelper {
     }
 
 
+    public void printNote(CharSequence msg) {
+        messager.printMessage(Diagnostic.Kind.NOTE, msg);
+    }
+
+
     public void printMessage(Diagnostic.Kind kind, CharSequence msg, TreePath path) {
         trees.printMessage(kind, msg, path.getLeaf(), path.getCompilationUnit());
     }
 
 
     public void printMessage(Diagnostic.Kind kind, CharSequence msg, Element element) {
-        log.printMessage(kind, msg, element);
+        messager.printMessage(kind, msg, element);
     }
 
 
@@ -250,7 +260,7 @@ public class ProcessingHelper {
 
 
     public CompilationUnitTree getUnit(TypeMirror type) {
-        TypeElement element = (TypeElement) asElement(type);
+        TypeElement element = asElement(type);
         return element == null ? null : getUnit(element);
     }
 

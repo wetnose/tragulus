@@ -33,7 +33,7 @@ import static wn.tragulus.JavacUtils.walkOver;
  * Created by Alexander A. Solovioff
  * 28.07.2018
  */
-@SupportedSourceVersion(SourceVersion.RELEASE_9)
+@SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class OptProcessor extends BasicProcessor {
 
     @Override
@@ -332,6 +332,7 @@ public class OptProcessor extends BasicProcessor {
 
     public static void main(String[] args) throws Exception {
         JavacUtils.complile("test-bed/src", new OptProcessor());
+        //JavacUtils.complile("samples/tragulus-sugar/src/test/resources", new OptProcessor());
         //System.out.println(JavacUtils.complile(Arrays.asList(new File("C:\\jobbing\\java-custom-ops\\annotation-processor\\test\\test\\OptReference.java")), new File("tmp"), new OptProcessor()));
     }
 }

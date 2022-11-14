@@ -27,8 +27,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -68,15 +66,19 @@ public class JavacUtils {
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics, null, null);
         fileManager.setLocation(StandardLocation.CLASS_OUTPUT, singletonList(outDir));
-        Set<String> options;
+        ArrayList<String> options;
         if (opt == 0) {
             options = null;
         } else {
-            options = new HashSet<>();
+            options = new ArrayList<>();
             if ((opt & OPT_PROCESS_ERRORS) != 0) {
                 options.add("-XDshouldStopPolicyIfError=PROCESS"); // JDK 1.8
                 options.add("-XDshould-stop.ifError=PROCESS");
             }
+//            options.add("-source");
+//            options.add("9");
+//            options.add("-target");
+//            options.add("9");
         }
         //((com.sun.tools.javac.main.JavaCompiler) compiler).shouldStopPolicyIfError = CompileStates.CompileState.INIT;
         JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, diagnostics, options, null, fileManager.getJavaFileObjectsFromFiles(javaFiles));

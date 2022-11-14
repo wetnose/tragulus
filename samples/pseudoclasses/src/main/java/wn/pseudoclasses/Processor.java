@@ -38,7 +38,7 @@ import static wn.pseudoclasses.Utils.isPseudoclass;
  * Date: 21.04.2021
  * Time: 7:15 PM
  */
-@SupportedSourceVersion(SourceVersion.RELEASE_9)
+@SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class Processor extends BasicProcessor {
 
     private static final Plugin DEFAULT_PLUGIN = new DefaultPlugin();
@@ -66,7 +66,7 @@ public class Processor extends BasicProcessor {
 
         // find pseudoclasses
         classes.forEach(type -> {
-            System.out.println(type + ": isPseudo = " + isPseudoclass(type));
+            helper.printNote(type + ": isPseudo = " + isPseudoclass(type));
             TypeElement superclass = helper.asElement(type.getSuperclass());
             boolean markedAsPseudo = isMarkedAsPseudo(type);
             boolean extendsPseudotype = isMarkedAsPseudo(superclass);
@@ -109,7 +109,7 @@ public class Processor extends BasicProcessor {
             });
         }
 
-        System.out.println(distribution);
+        helper.printNote(distribution.toString());
 
         Map<Plugin,List<TypeUsages>> usages = new HashMap<>();
 

@@ -12,6 +12,7 @@ import com.sun.tools.javac.util.Names;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedSourceVersion;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.*;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -26,10 +27,9 @@ import java.util.stream.Stream;
 
 import static com.sun.source.tree.Tree.Kind.*;
 import static com.sun.tools.javac.parser.Tokens.TokenKind.EOF;
-import static javax.lang.model.SourceVersion.RELEASE_9;
 
 
-@SupportedSourceVersion(RELEASE_9)
+@SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class AsmPreprocessor extends BasicProcessor {
 
     @Override

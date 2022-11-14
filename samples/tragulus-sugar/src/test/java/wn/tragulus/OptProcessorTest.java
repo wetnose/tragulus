@@ -1,7 +1,7 @@
 package wn.tragulus;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.processing.Processor;
 import java.io.File;
@@ -14,113 +14,113 @@ public class OptProcessorTest {
 
     @Test
     public void simplePositive() throws Exception {
-        Assert.assertTrue( compile("OptSimple", new OptProcessor()) );
+        Assertions.assertTrue( compile("OptSimple", new OptProcessor()) );
         int ret = run("OptSimple");
-        Assert.assertEquals(0, ret);
+        Assertions.assertEquals(0, ret);
     }
 
     @Test
     public void simpleNegative() throws Exception {
-        Assert.assertTrue( compile("OptSimple", new FakeProcessor()) );
+        Assertions.assertTrue( compile("OptSimple", new FakeProcessor()) );
         int ret = run("OptSimple");
-        Assert.assertEquals(1, ret);
+        Assertions.assertEquals(1, ret);
     }
 
 
     @Test
     public void lambdaPositive() throws Exception {
-        Assert.assertTrue( compile("OptLambda", new OptProcessor()) );
+        Assertions.assertTrue( compile("OptLambda", new OptProcessor()) );
         int ret = run("OptLambda");
-        Assert.assertEquals(0, ret);
+        Assertions.assertEquals(0, ret);
     }
 
     @Test
     public void lambdaNegative() throws Exception {
-        Assert.assertTrue( compile("OptLambda", new FakeProcessor()) );
+        Assertions.assertTrue( compile("OptLambda", new FakeProcessor()) );
         int ret = run("OptLambda");
-        Assert.assertEquals(1, ret);
+        Assertions.assertEquals(1, ret);
     }
 
 
     @Test
     public void nestedPositive() throws Exception {
-        Assert.assertTrue( compile("OptNested", new OptProcessor()) );
+        Assertions.assertTrue( compile("OptNested", new OptProcessor()) );
         int ret = run("OptNested");
-        Assert.assertEquals(0, ret);
+        Assertions.assertEquals(0, ret);
     }
 
     @Test
     public void nestedNegative() throws Exception {
-        Assert.assertTrue( compile("OptNested", new FakeProcessor()) );
+        Assertions.assertTrue( compile("OptNested", new FakeProcessor()) );
         int ret = run("OptNested");
-        Assert.assertEquals(1, ret);
+        Assertions.assertEquals(1, ret);
     }
 
 
     @Test
     public void enclosingPositive() throws Exception {
         System.out.println(new File(".").getCanonicalPath());
-        Assert.assertTrue( compile("OptEnclosing", new OptProcessor()) );
+        Assertions.assertTrue( compile("OptEnclosing", new OptProcessor()) );
         int ret = run("OptEnclosing");
-        Assert.assertEquals(0, ret);
+        Assertions.assertEquals(0, ret);
     }
 
     @Test
     public void enclosingNegative() throws Exception {
-        Assert.assertTrue( compile("OptEnclosing", new FakeProcessor()) );
+        Assertions.assertTrue( compile("OptEnclosing", new FakeProcessor()) );
         int ret = run("OptEnclosing");
-        Assert.assertEquals(1, ret);
+        Assertions.assertEquals(1, ret);
     }
 
 
     @Test
     public void voidPositive() throws Exception {
-        Assert.assertTrue( compile("OptVoid", new OptProcessor()) );
+        Assertions.assertTrue( compile("OptVoid", new OptProcessor()) );
         int ret = run("OptVoid");
-        Assert.assertEquals(0, ret);
+        Assertions.assertEquals(0, ret);
     }
 
     @Test
     public void voidNegative() throws Exception {
-        Assert.assertTrue( compile("OptVoid", new FakeProcessor()) );
+        Assertions.assertTrue( compile("OptVoid", new FakeProcessor()) );
         int ret = run("OptVoid");
-        Assert.assertEquals(1, ret);
+        Assertions.assertEquals(1, ret);
     }
 
 
     @Test
     public void newPositive() throws Exception {
-        Assert.assertTrue( compile("OptNew", new OptProcessor()) );
+        Assertions.assertTrue( compile("OptNew", new OptProcessor()) );
         int ret = run("OptNew");
-        Assert.assertEquals(0, ret);
+        Assertions.assertEquals(0, ret);
     }
 
     @Test
     public void newNegative() throws Exception {
-        Assert.assertTrue( compile("OptNew", new FakeProcessor()) );
+        Assertions.assertTrue( compile("OptNew", new FakeProcessor()) );
         int ret = run("OptNew");
-        Assert.assertEquals(1, ret);
+        Assertions.assertEquals(1, ret);
     }
 
 
     @Test
     public void filesPositive() throws Exception {
-        Assert.assertTrue( compile("OptFiles", new OptProcessor()) );
+        Assertions.assertTrue( compile("OptFiles", new OptProcessor()) );
         int ret = run("OptFiles");
-        Assert.assertEquals(0, ret);
+        Assertions.assertEquals(0, ret);
     }
 
     @Test
     public void filesNegative() throws Exception {
-        Assert.assertTrue( compile("OptFiles", new FakeProcessor()) );
+        Assertions.assertTrue( compile("OptFiles", new FakeProcessor()) );
         int ret = run("OptFiles");
-        Assert.assertEquals(1, ret);
+        Assertions.assertEquals(1, ret);
     }
 
 
     @Test
     public void reference() throws Exception {
-        Assert.assertFalse( compile("OptReference", new OptProcessor()) );
+        Assertions.assertFalse( compile("OptReference", new OptProcessor()) );
     }
 
 

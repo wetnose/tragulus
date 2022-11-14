@@ -2,8 +2,8 @@ plugins {
     id 'java'
 }
 
-sourceCompatibility = '9'
-targetCompatibility = '9'
+sourceCompatibility = '11'
+targetCompatibility = '11'
 
 compileJava {
     options.compilerArgs = [
@@ -14,16 +14,21 @@ compileJava {
 }
 
 dependencies {
-    compile files("${System.getProperty('java.home')}/../lib/tools.jar")
-    compile project(':tragulus')
-    testCompile 'junit:junit:4.12'
+    //compile files("${System.getProperty('java.home')}/../lib/tools.jar")
+    implementation project(':tragulus')
+    annotationProcessor project(':tragulus')
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 }
 
-jar {
-    manifest {
-        attributes(
-                'Implementation-Title': project.name,
-                'Implementation-Version': project.version)
-    }
-
+test {
+    useJUnitPlatform()
 }
+
+//jar {
+//    manifest {
+//        attributes(
+//                'Implementation-Title': project.name,
+//                'Implementation-Version': project.version)
+//    }
+//}

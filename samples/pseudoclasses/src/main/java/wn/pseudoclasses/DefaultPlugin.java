@@ -134,4 +134,10 @@ public class DefaultPlugin implements Plugin {
             });
         });
     }
+
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName();
+    }
 }
