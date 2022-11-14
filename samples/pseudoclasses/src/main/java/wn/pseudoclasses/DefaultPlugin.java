@@ -65,6 +65,7 @@ public class DefaultPlugin implements Plugin {
                         TreePath path = walker.path();
                         helper.attribute(path);
                         Symbol element = (Symbol) trees.getElement(path);
+                        if (element == null) break;
                         accessCheck: {
                             if (pub) {
                                 if (isPublic(element)) break accessCheck;

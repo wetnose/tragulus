@@ -7,7 +7,7 @@ import wn.pseudoclasses.Wrapper;
  * Time: 7:32 PM
  */
 @Pseudo
-public class Int extends Wrapper {
+public class Int extends int {
 
 //    final int value;
 //

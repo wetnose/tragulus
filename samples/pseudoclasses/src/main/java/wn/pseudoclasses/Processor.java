@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 
 import static wn.pseudoclasses.Utils.isMarkedAsPseudo;
 import static wn.pseudoclasses.Utils.isPseudoclass;
+import static wn.pseudoclasses.Utils.supertypeOf;
 
 /**
  * Alexander A. Solovioff
@@ -67,21 +68,26 @@ public class Processor extends BasicProcessor {
         // find pseudoclasses
         classes.forEach(type -> {
             helper.printNote(type + ": isPseudo = " + isPseudoclass(type));
-            TypeElement superclass = helper.asElement(type.getSuperclass());
+            TypeMirror supertype = supertypeOf(helper, type);
+            TypeElement superclass = helper.asElement(supertype);
             boolean markedAsPseudo = isMarkedAsPseudo(type);
             boolean extendsPseudotype = isMarkedAsPseudo(superclass);
+            boolean extendsPrimitive = supertype != null && supertype.getKind().isPrimitive();
             if (!markedAsPseudo) {
-                if (extendsPseudotype) {
+                if (extendsPseudotype || extendsPrimitive) {
                     helper.printError("Missing @Pseudo annotation", type);
                 } else {
                     return;
                 }
             } else {
                 if (!extendsPseudotype) {
-                    if (helper.isFinal(superclass)) {
-                        CompilationUnitTree unit = helper.getUnit(type);
-                        JavaFileObject src = unit.getSourceFile();
+                    CompilationUnitTree unit = helper.getUnit(type);
+                    JavaFileObject src = unit.getSourceFile();
+                    if (superclass != null && helper.isFinal(superclass)) {
                         helper.filterDiagnostics(d -> d.getSource() == src && d.getCode().equals(ERR_INHERIT_FROM_FINAL));
+                    } else
+                    if (extendsPrimitive) {
+                        helper.filterDiagnostics(d -> d.getSource() == src && d.getCode().equals(ERR_PRIM_TYPE_ARG));
                     }
                 }
             }
