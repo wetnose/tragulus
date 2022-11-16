@@ -123,6 +123,13 @@ public class OptProcessorTest {
         Assertions.assertFalse( compile("OptReference", new OptProcessor()) );
     }
 
+    @Test
+    public void secondArg() throws Exception {
+        Assertions.assertTrue( compile("OptSecondArg", new OptProcessor()) );
+        int ret = run("OptSecondArg");
+        Assertions.assertEquals(0, ret);
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //

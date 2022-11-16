@@ -305,7 +305,7 @@ public class OptProcessor extends BasicProcessor {
                         }
                         break;
                     }
-                    case MEMBER_REFERENCE: {
+                    case MEMBER_REFERENCE: { // JavaSugar::opt
                         MemberReferenceTree ref = (MemberReferenceTree) node;
                         if (ref.getMode() == ReferenceMode.INVOKE
                                 && ref.getName() == optName
