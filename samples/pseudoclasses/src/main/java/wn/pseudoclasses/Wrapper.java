@@ -6,6 +6,8 @@ package wn.pseudoclasses;
  * Time: 7:13 PM
  */
 @Pseudo
-public class Wrapper {
+public abstract class Wrapper<T> {
+
+    protected T value;
 
 }
