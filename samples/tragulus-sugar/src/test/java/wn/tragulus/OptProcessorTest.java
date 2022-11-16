@@ -138,6 +138,14 @@ public class OptProcessorTest {
         int a, b;
     }
 
+    @Test
+    public void arrayAccess() throws Exception {
+        Assertions.assertTrue( compile("OptArrayAccess", new OptProcessor()) );
+        int ret = run("OptArrayAccess");
+        Assertions.assertEquals(0, ret);
+        int a, b;
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //
