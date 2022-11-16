@@ -130,6 +130,14 @@ public class OptProcessorTest {
         Assertions.assertEquals(0, ret);
     }
 
+    @Test
+    public void forLoop() throws Exception {
+        Assertions.assertTrue( compile("OptForLoop", new OptProcessor()) );
+        int ret = run("OptForLoop");
+        Assertions.assertEquals(0, ret);
+        int a, b;
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //

@@ -151,6 +151,9 @@ public class OptProcessor extends BasicProcessor {
                                         case NEW_CLASS:
                                             if (((NewClassTree) expr).getEnclosingExpression() != n) break loop;
                                             break;
+                                        default:
+                                            if (expr.getKind().asInterface() == BinaryTree.class) break loop;
+                                            break;
                                     }
                                     enclExprPath = p;
                                     n = expr;
