@@ -135,7 +135,6 @@ public class OptProcessorTest {
         Assertions.assertTrue( compile("OptForLoop", new OptProcessor()) );
         int ret = run("OptForLoop");
         Assertions.assertEquals(0, ret);
-        int a, b;
     }
 
     @Test
@@ -143,7 +142,27 @@ public class OptProcessorTest {
         Assertions.assertTrue( compile("OptArrayAccess", new OptProcessor()) );
         int ret = run("OptArrayAccess");
         Assertions.assertEquals(0, ret);
-        int a, b;
+    }
+
+    @Test
+    public void ternaryCond() throws Exception {
+        Assertions.assertTrue( compile("TernaryCond", new OptProcessor()) );
+        int ret = run("TernaryCond");
+        Assertions.assertEquals(0, ret);
+    }
+
+    @Test
+    public void ternaryThen() throws Exception {
+        Assertions.assertTrue( compile("TernaryThen", new OptProcessor()) );
+        int ret = run("TernaryThen");
+        Assertions.assertEquals(0, ret);
+    }
+
+    @Test
+    public void ternaryElse() throws Exception {
+        Assertions.assertTrue( compile("TernaryElse", new OptProcessor()) );
+        int ret = run("TernaryElse");
+        Assertions.assertEquals(0, ret);
     }
 
 

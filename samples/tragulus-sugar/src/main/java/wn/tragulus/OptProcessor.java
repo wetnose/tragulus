@@ -13,6 +13,7 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;
 import java.util.List;
@@ -151,6 +152,8 @@ public class OptProcessor extends BasicProcessor {
                                         case NEW_CLASS:
                                             if (((NewClassTree) expr).getEnclosingExpression() != n) break loop;
                                             break;
+                                        case CONDITIONAL_EXPRESSION:
+                                            break loop;
                                         default:
                                             if (expr.getKind().asInterface() == BinaryTree.class) break loop;
                                             break;
@@ -276,12 +279,19 @@ public class OptProcessor extends BasicProcessor {
                             asm.mov(C, B);
 
                             boolean noRet = false;
+                            TypeMirror retType = null;
 
                             asm.ident(varDecls.get(last));
                             if (enclExprPath == null) {
                                 makeAccessor.accept(parts.get(last+1));
                             } else {
-                                noRet = optType == 1 && enclExprPath.getParentPath().getLeaf().getKind() == EXPRESSION_STATEMENT;
+                                if (optType == 1) {
+                                    if (enclExprPath.getParentPath().getLeaf().getKind() == EXPRESSION_STATEMENT) {
+                                        noRet = true;
+                                    } else {
+                                        retType = helper.attribute(enclExprPath);
+                                    }
+                                }
                                 Tree enclExpr = enclExprPath.getLeaf();
                                 while (node != enclExpr) node = walker.up();
                                 Editors.replaceTree(node, opt, asm.get());
@@ -295,7 +305,17 @@ public class OptProcessor extends BasicProcessor {
                                 asm.stat(B, "if ($B) $A()");
                             } else {
                                 if (optType == 1) {
-                                    asm.nil(C);
+                                    switch (retType == null ? TypeKind.DECLARED : retType.getKind()) {
+                                        case BOOLEAN : asm.literal(C, false); break;
+                                        case BYTE    : asm.literal(C, (byte) 0); break;
+                                        case SHORT   : asm.literal(C, (short) 0); break;
+                                        case INT     : asm.literal(C, 0); break;
+                                        case LONG    : asm.literal(C, 0L); break;
+                                        case CHAR    : asm.literal(C, (char) 0); break;
+                                        case FLOAT   : asm.literal(C, 0f); break;
+                                        case DOUBLE  : asm.literal(C, 0.0); break;
+                                        default      : asm.nil(C); break;
+                                    }
                                 } else {
                                     asm.set(C, opt.getArguments().get(1));
                                 }
