@@ -9,7 +9,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
-import wn.tragulus.ProcessingHelper;
 import wn.tragulus.TreeAssembler;
 
 import javax.lang.model.element.Element;
@@ -25,7 +24,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.sun.tools.javac.code.Flags.ABSTRACT;
-import static wn.pseudoclasses.Utils.isMarkedAsPseudo;
+import static wn.pseudoclasses.ProcessingHelper.isMarkedAsPseudo;
 import static wn.tragulus.JavacUtils.walkOver;
 
 /**

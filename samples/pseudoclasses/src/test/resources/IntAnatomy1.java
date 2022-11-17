@@ -6,7 +6,7 @@ import wn.pseudoclasses.Pseudo;
  * Time: 7:32 PM
  */
 @Pseudo
-public class IntAnatomy1 extends int implements IntAnatomy {
+public final class IntAnatomy1 extends int implements IntAnatomy {
 
     @Override
     public int get() {

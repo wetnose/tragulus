@@ -1,7 +1,5 @@
 package wn.pseudoclasses;
 
-import wn.tragulus.ProcessingHelper;
-
 import javax.lang.model.element.TypeElement;
 import java.util.List;
 

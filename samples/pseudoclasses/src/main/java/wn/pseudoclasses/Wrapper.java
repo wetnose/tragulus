@@ -9,5 +9,4 @@ package wn.pseudoclasses;
 public abstract class Wrapper<T> {
 
     protected T value;
-
 }

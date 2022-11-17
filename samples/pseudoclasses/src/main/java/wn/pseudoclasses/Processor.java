@@ -10,6 +10,7 @@ import wn.tragulus.BasicProcessor;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
 
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
@@ -29,10 +30,11 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import static wn.pseudoclasses.Utils.isMarkedAsPseudo;
-import static wn.pseudoclasses.Utils.isPseudoclass;
-import static wn.pseudoclasses.Utils.supertypeOf;
+import static wn.pseudoclasses.ProcessingHelper.isMarkedAsPseudo;
+import static wn.pseudoclasses.ProcessingHelper.isPseudoclass;
+
 
 /**
  * Alexander A. Solovioff
@@ -43,10 +45,19 @@ import static wn.pseudoclasses.Utils.supertypeOf;
 public class Processor extends BasicProcessor {
 
     private static final Plugin DEFAULT_PLUGIN = new DefaultPlugin();
-//    private static final SpecialPlugin[] SPECIAL_PLUGINS = {new WrapperPlugin()};
+    private static final SpecialPlugin[] SPECIAL_PLUGINS = {new WrapperPlugin()};
 
-    private static final String ERR_INHERIT_FROM_FINAL = "compiler.err.cant.inherit.from.final";
-    private static final String ERR_PRIM_TYPE_ARG      = "compiler.err.type.found.req";
+    ProcessingHelper helper;
+    Map<TypeMirror,SpecialPlugin> specialPlugins;
+
+
+    @Override
+    public synchronized void init(ProcessingEnvironment processingEnv) {
+        super.init(processingEnv);
+        helper = new ProcessingHelper(processingEnv);
+        specialPlugins = Stream.of(SPECIAL_PLUGINS)
+                .collect(Collectors.toMap(p -> p.basicType(helper), p -> p));
+    }
 
 
     @Override
@@ -62,13 +73,12 @@ public class Processor extends BasicProcessor {
 //        }
 
         List<TypeElement> classes = collectClasses(roundEnv);
-        Map<Plugin,List<TypeElement>> distribution = new HashMap<>();
-        Set<TypeElement> pseudoclasses = new HashSet<>();
+        LinkedHashSet<TypeElement> pseudoclasses = new LinkedHashSet<>();
 
         // find pseudoclasses
         classes.forEach(type -> {
             helper.printNote(type + ": isPseudo = " + isPseudoclass(type));
-            TypeMirror supertype = supertypeOf(helper, type);
+            TypeMirror supertype = helper.getSupertype(type.asType());
             TypeElement superclass = helper.asElement(supertype);
             boolean markedAsPseudo = isMarkedAsPseudo(type);
             boolean extendsPseudotype = isMarkedAsPseudo(superclass);
@@ -84,14 +94,17 @@ public class Processor extends BasicProcessor {
                     CompilationUnitTree unit = helper.getUnit(type);
                     JavaFileObject src = unit.getSourceFile();
                     if (superclass != null && helper.isFinal(superclass)) {
-                        helper.filterDiagnostics(d -> d.getSource() == src && d.getCode().equals(ERR_INHERIT_FROM_FINAL));
+                        helper.suppressCantInheritFromFinal(diag -> diag.getSource() == src);
                     } else
                     if (extendsPrimitive) {
-                        helper.filterDiagnostics(d -> d.getSource() == src && d.getCode().equals(ERR_PRIM_TYPE_ARG));
+                        helper.suppressPrimTypeArg(diag -> diag.getSource() == src);
                     }
                 }
             }
-            distribution.compute(DEFAULT_PLUGIN, (plugin, list) -> list != null ? list : new ArrayList<>()).add(type);
+//            distribution.compute(DEFAULT_PLUGIN, (plugin, list) -> list != null ? list : new ArrayList<>()).add(type);
+//            if (type.getSuperclass() == helper.wrapperType) {
+//                distribution.compute(WRAPPER_PLUGIN, (plugin, list) -> list != null ? list : new ArrayList<>()).add(type);
+//            }
             pseudoclasses.add(type);
         });
 
@@ -109,20 +122,20 @@ public class Processor extends BasicProcessor {
                 });
             });
 
-            helper.filterDiagnostics(diag -> {
+            helper.suppressPrimTypeArg(diag -> {
                 Tree tree = JavacUtils.getTree(diag);
-                return diag.getCode().equals(ERR_PRIM_TYPE_ARG) && parametrizedTypePos.contains(tree);
+                return parametrizedTypePos.contains(tree);
             });
         }
 
-        helper.printNote(distribution.toString());
+        helper.printNote(pseudoclasses.toString());
 
         Map<Plugin,List<TypeUsages>> usages = new HashMap<>();
 
-        distribution.forEach((plugin, types) -> {
+        Set<TypeMirror> pseudoTypes = pseudoclasses.stream().map(Element::asType).collect(Collectors.toSet());
+        Set<TypeMirror> validated = new LinkedHashSet<>(pseudoclasses.size());
 
-            Set<TypeMirror> pseudoTypes = types.stream().map(Element::asType).collect(Collectors.toSet());
-            Set<TypeMirror> validated = new LinkedHashSet<>(pseudoTypes.size());
+        distribution: {
 
             class Validator implements Consumer<TypeMirror> {
                 boolean valid = true;
@@ -131,7 +144,11 @@ public class Processor extends BasicProcessor {
                     if (validated.contains(t)) return;
                     TypeMirror supertype = helper.getSupertype(t);
                     if (pseudoTypes.contains(supertype)) accept(supertype);
-                    if (!plugin.validate(helper, helper.asElement(t))) valid = false;
+                    TypeElement element = helper.asElement(t);
+                    if (!DEFAULT_PLUGIN.validate(helper, element)) {
+                        SpecialPlugin plugin = specialPlugins.get(helper.getBaseType(element).asType());
+                        valid = plugin == null || plugin.validate(helper, element);
+                    }
                     validated.add(t);
                 }
             }
@@ -139,7 +156,7 @@ public class Processor extends BasicProcessor {
             Validator validator = new Validator();
             pseudoTypes.forEach(validator);
 
-            if (!validator.valid) return;
+            if (!validator.valid) break distribution;
 
             Map<TypeMirror,TypeUsages> typeUsages = new HashMap<>();
             BiConsumer<TypeMirror,CompilationUnitTree> distribute = (ref, unit) ->
@@ -164,18 +181,23 @@ public class Processor extends BasicProcessor {
 
             });
 
-            usages.put(plugin, new ArrayList<>(typeUsages.values()));
-        });
+            usages.put(DEFAULT_PLUGIN, new ArrayList<>(typeUsages.values()));
+            typeUsages.forEach((type, using) -> {
+                SpecialPlugin plugin = specialPlugins.get(helper.getBaseType(type).asType());
+                if (plugin == null) return;
+                usages.compute(plugin, (p, use) -> use != null ? use : new ArrayList<>()).add(using);
+            });
+        }
 
         if (helper.getDiagnosticQ().stream().noneMatch(diag -> diag.getKind() == Diagnostic.Kind.ERROR)) {
             usages.forEach((plugin, use) -> plugin.process(helper, use));
         }
 
 
-        distribution.forEach((plugin, types) -> types.forEach(t -> {
-            Tree tree = helper.getTreeUtils().getTree(t);
+        pseudoclasses.forEach(type -> {
+            Tree tree = helper.getTreeUtils().getTree(type);
             if (tree == null) throw new AssertionError();
-            CompilationUnitTree unit = helper.getUnit(t);
+            CompilationUnitTree unit = helper.getUnit(type);
             Editors.filterTree(unit, true, node -> node != tree);
 //            try {
 //                System.out.println("--------" + unit.getSourceFile());
@@ -183,7 +205,7 @@ public class Processor extends BasicProcessor {
 //            } catch (IOException e) {
 //                throw new AssertionError(e);
 //            }
-        }));
+        });
 
         return false;
     }

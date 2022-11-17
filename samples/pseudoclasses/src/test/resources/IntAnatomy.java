@@ -1,5 +1,4 @@
-package wn.pseudoclasses;
-
+import wn.pseudoclasses.Pseudo;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -8,7 +7,7 @@ import java.nio.charset.StandardCharsets;
  * Time: 7:32 PM
  */
 @Pseudo
-public interface IntAnatomy extends Template {
+public interface IntAnatomy {
 
     int  get();
     void set(int value);

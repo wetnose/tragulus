@@ -7,7 +7,7 @@ import wn.pseudoclasses.Wrapper;
  * Time: 7:32 PM
  */
 @Pseudo
-public class IntAnatomy2 extends Wrapper<int> implements IntAnatomy {
+public final class IntAnatomy2 extends Wrapper<int> implements IntAnatomy {
 
     @Override
     public int get() {

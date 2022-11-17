@@ -1,7 +1,7 @@
 
 public class Client1 {
 
-    Extension<int> ext;
+    Extension ext;
 //
 //    public Client1() {
 //        ext = new Extension2();

@@ -1,9 +1,6 @@
 package wn.pseudoclasses;
 
-import wn.tragulus.ProcessingHelper;
-
-import javax.lang.model.element.TypeElement;
-import java.util.List;
+import javax.lang.model.type.TypeMirror;
 
 /**
  * Alexander A. Solovioff
@@ -12,5 +9,5 @@ import java.util.List;
  */
 interface SpecialPlugin extends Plugin {
 
-    Class<?> basicType();
+    TypeMirror basicType(ProcessingHelper helper);
 }
