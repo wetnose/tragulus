@@ -5,7 +5,6 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
-import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
@@ -24,6 +23,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.sun.tools.javac.code.Flags.ABSTRACT;
+import static wn.pseudoclasses.ProcessingHelper.Err.OVERRIDES_OBJ_MEMBER;
 import static wn.pseudoclasses.ProcessingHelper.isMarkedAsPseudo;
 import static wn.tragulus.JavacUtils.walkOver;
 
@@ -63,10 +63,14 @@ public class DefaultPlugin implements Plugin {
                     case IDENTIFIER: {
                         TreePath path = walker.path();
                         helper.attribute(path);
-                        Symbol element = (Symbol) trees.getElement(path);
+                        Element element = trees.getElement(path);
                         if (element == null) break;
                         accessCheck: {
                             if (pub) {
+                                Element enclosing = element.getEnclosingElement();
+                                if (enclosing == type) break accessCheck;
+                                if (enclosing.getKind() == ElementKind.METHOD) break accessCheck;
+                                if (helper.isSpecial(enclosing)) break accessCheck;
                                 if (isPublic(element)) break accessCheck;
                             } else {
                                 if (element instanceof TypeElement) {
@@ -91,8 +95,14 @@ public class DefaultPlugin implements Plugin {
                         MethodSymbol method = (MethodSymbol) trees.getElement(path);
                         for (MethodSymbol m : helper.getOverriddenMethods(method)) {
                             if ((m.flags() & ABSTRACT) == 0 || !isMarkedAsPseudo((TypeElement) m.owner)) {
-                                helper.printError("method overriding not supported", method);
-                                break;
+                                if (type.getKind() == ElementKind.INTERFACE) {
+                                    if (m.getEnclosingElement().asType() == helper.objectType) {
+                                        helper.suppressDiagnostics(OVERRIDES_OBJ_MEMBER, path.getLeaf());
+                                    }
+                                } else {
+                                    helper.printError("method overriding not supported", method);
+                                    valid = false;
+                                }
                             }
                         }
                         break;
@@ -101,7 +111,7 @@ public class DefaultPlugin implements Plugin {
             }
         }
         Walker walker = new Walker();
-        walkOver(trees.getPath(type), walker);
+        walkOver(typePath, walker);
         return fieldCount == 0 && walker.valid;
     }
 
@@ -116,7 +126,7 @@ public class DefaultPlugin implements Plugin {
         usages.forEach(usage -> {
             TypeElement type = helper.asElement(usage.type);
             TypeElement rep = type;
-            while (isMarkedAsPseudo(rep) || types.contains(rep.asType())) {
+            while (rep != null && (isMarkedAsPseudo(rep) || types.contains(rep.asType()))) {
                 rep = helper.asElement(rep.getSuperclass());
             }
             TypeElement replace = rep;

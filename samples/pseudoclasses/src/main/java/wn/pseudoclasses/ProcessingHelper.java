@@ -1,14 +1,20 @@
 package wn.pseudoclasses;
 
+import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Type;
 import wn.tragulus.JavacUtils;
 
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
@@ -18,15 +24,32 @@ import java.util.function.Predicate;
  */
 class ProcessingHelper extends wn.tragulus.ProcessingHelper {
 
-    private static final String ERR_INHERIT_FROM_FINAL = "compiler.err.cant.inherit.from.final";
-    private static final String ERR_PRIM_TYPE_ARG      = "compiler.err.type.found.req";
+    enum Err {
 
+        INHERIT_FROM_FINAL   ("compiler.err.cant.inherit.from.final"),
+        PRIM_TYPE_ARG        ("compiler.err.type.found.req"),
+        OVERRIDES_OBJ_MEMBER ("compiler.err.default.overrides.object.member"),
+
+        ;
+
+        final String code;
+
+        Err(String code) {
+            this.code = code;
+        }
+    }
+
+
+    TypeMirror objectType;
     TypeMirror wrapperType;
+    Set<TypeMirror> specialTypes;
 
 
     public ProcessingHelper(ProcessingEnvironment processingEnv) {
         super(processingEnv);
+        objectType = asType(Object.class);
         wrapperType = asType(Wrapper.class);
+        specialTypes = Set.of(wrapperType);
     }
 
 
@@ -35,8 +58,20 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
     }
 
 
-    static boolean isPseudoclass(TypeElement type) {
-        return type != null && (isMarkedAsPseudo(type) || isPseudoclass(JavacUtils.asElement(type.getSuperclass())));
+    boolean isPseudoclass(TypeElement type) {
+        if (type == null) return false;
+        if (specialTypes.contains(type.asType())) return true;
+        return isMarkedAsPseudo(type) || isPseudoclass(asElement(type.getSuperclass()));
+    }
+
+
+    boolean isSpecial(Element type) {
+        return type != null && type.getKind() == ElementKind.CLASS && specialTypes.contains(type.asType());
+    }
+
+
+    boolean isSpecial(TypeMirror type) {
+        return type != null && specialTypes.contains(type);
     }
 
 
@@ -60,12 +95,25 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
     }
 
 
-    void suppressCantInheritFromFinal(Predicate<Diagnostic<JavaFileObject>> filter) {
-        filterDiagnostics(diag -> diag.getCode().equals(ERR_INHERIT_FROM_FINAL) && filter.test(diag));
+    public TypeElement getSupertype(TreePath typePath) {
+        if (typePath.getLeaf().getKind() != Tree.Kind.CLASS) return null;
+        ClassTree classTree = (ClassTree) typePath.getLeaf();
+        Tree extendsClause= classTree.getExtendsClause();
+        return extendsClause == null ? null : asElement(TreePath.getPath(typePath, extendsClause));
     }
 
 
-    void suppressPrimTypeArg(Predicate<Diagnostic<JavaFileObject>> filter) {
-        filterDiagnostics(diag -> diag.getCode().equals(ERR_PRIM_TYPE_ARG) && filter.test(diag));
+    void suppressDiagnostics(Err err, Predicate<Diagnostic<JavaFileObject>> filter) {
+        filterDiagnostics(diag -> diag.getCode().equals(err.code) && filter.test(diag));
+    }
+
+
+    void suppressDiagnostics(Err err, JavaFileObject src) {
+        filterDiagnostics(diag -> diag.getCode().equals(err.code) && diag.getSource() == src);
+    }
+
+
+    void suppressDiagnostics(Err err, Tree tree) {
+        filterDiagnostics(diag -> diag.getCode().equals(err.code) && JavacUtils.getTree(diag) == tree);
     }
 }

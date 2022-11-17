@@ -7,6 +7,7 @@ import com.sun.source.tree.Tree;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
@@ -18,6 +19,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static javax.lang.model.element.ElementKind.CLASS;
+import static javax.lang.model.element.ElementKind.INTERFACE;
 import static javax.lang.model.type.TypeKind.DECLARED;
 
 
@@ -53,6 +55,17 @@ public abstract class BasicProcessor extends AbstractProcessor {
     protected final java.util.List<TypeElement> collectClasses(RoundEnvironment env) {
         return env.getRootElements().stream()
                 .filter(e -> e.getKind() == CLASS)
+                .map(e -> (TypeElement) e)
+                .collect(Collectors.toList());
+    }
+
+
+    protected final java.util.List<TypeElement> collectClassesAndInterfaces(RoundEnvironment env) {
+        return env.getRootElements().stream()
+                .filter(e -> {
+                    ElementKind kind = e.getKind();
+                    return kind == CLASS || kind == INTERFACE;
+                })
                 .map(e -> (TypeElement) e)
                 .collect(Collectors.toList());
     }

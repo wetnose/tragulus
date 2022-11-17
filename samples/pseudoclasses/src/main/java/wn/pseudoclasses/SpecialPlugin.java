@@ -1,5 +1,6 @@
 package wn.pseudoclasses;
 
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 
 /**
@@ -9,5 +10,9 @@ import javax.lang.model.type.TypeMirror;
  */
 interface SpecialPlugin extends Plugin {
 
-    TypeMirror basicType(ProcessingHelper helper);
+    boolean accept(ProcessingHelper helper, TypeElement type);
+
+    default boolean accept(ProcessingHelper helper, TypeMirror type) {
+        return accept(helper, (TypeElement) helper.asElement(type));
+    }
 }

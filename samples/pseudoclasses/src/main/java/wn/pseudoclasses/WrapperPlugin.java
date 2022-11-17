@@ -5,11 +5,11 @@ import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
-import wn.tragulus.JavacUtils;
 
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
 import java.util.List;
+
+import static wn.pseudoclasses.ProcessingHelper.Err.PRIM_TYPE_ARG;
 
 /**
  * Alexander A. Solovioff
@@ -18,9 +18,11 @@ import java.util.List;
  */
 class WrapperPlugin implements SpecialPlugin {
 
+
     @Override
-    public TypeMirror basicType(ProcessingHelper helper) {
-        return helper.wrapperType;
+    public boolean accept(ProcessingHelper helper, TypeElement type) {
+        TypeElement baseType = helper.getBaseType(type);
+        return baseType != null && baseType.asType() == helper.wrapperType;
     }
 
 
@@ -32,7 +34,7 @@ class WrapperPlugin implements SpecialPlugin {
         List<? extends Tree> args = ((ParameterizedTypeTree) classTree.getExtendsClause()).getTypeArguments();
         Tree arg = args.get(0);
         if (arg.getKind() == Tree.Kind.PRIMITIVE_TYPE) {
-            helper.suppressPrimTypeArg(diag -> arg == JavacUtils.getTree(diag));
+            helper.suppressDiagnostics(PRIM_TYPE_ARG, arg);
         }
         return true;
     }
