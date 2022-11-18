@@ -3,10 +3,9 @@ package wn.pseudoclasses;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
-import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
-import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
+import wn.pseudoclasses.ProcessingHelper.PseudoType;
 import wn.tragulus.BasicProcessor;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
@@ -19,22 +18,14 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
-import javax.tools.JavaFileObject;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
-
-import static wn.pseudoclasses.ProcessingHelper.Err.INHERIT_FROM_FINAL;
-import static wn.pseudoclasses.ProcessingHelper.Err.PRIM_TYPE_ARG;
-import static wn.pseudoclasses.ProcessingHelper.isMarkedAsPseudo;
 
 
 /**
@@ -45,8 +36,8 @@ import static wn.pseudoclasses.ProcessingHelper.isMarkedAsPseudo;
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class Processor extends BasicProcessor {
 
-    private static final Plugin DEFAULT_PLUGIN = new DefaultPlugin();
-    private static final SpecialPlugin[] SPECIAL_PLUGINS = {new WrapperPlugin(), new TemplatePlugin()};
+    final Validator validator = new Validator();
+    final Inliner inliner = new Inliner();
 
     ProcessingHelper helper;
 
@@ -59,156 +50,77 @@ public class Processor extends BasicProcessor {
 
 
     @Override
-    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment env) {
 
-        if (roundEnv.getRootElements().isEmpty()) return false;
+        if (env.getRootElements().isEmpty()) return false;
 
         Trees trees = helper.getTreeUtils();
 
-//        Map<TypeMirror, Plugin> plugins = new IdentityHashMap<>(SPECIAL_PLUGINS.length);
-//        for (SpecialPlugin plugin : SPECIAL_PLUGINS) {
-//            plugins.put(helper.asType(plugin.basicType()), plugin);
-//        }
+        ArrayList<PseudoType> pseudotypes = new ArrayList<>();
 
-        List<TypeElement> classes = collectClassesAndInterfaces(roundEnv);
-        LinkedHashSet<TypeElement> pseudoclasses = new LinkedHashSet<>();
-
-        // find pseudoclasses
-        classes.forEach(type -> {
-            helper.printNote(type + ": isPseudo = " + helper.isPseudoclass(type));
-            TreePath typePath = trees.getPath(type);
-            TypeElement superclass = helper.getSupertype(typePath);
-            boolean markedAsPseudo = isMarkedAsPseudo(type);
-            boolean extendsPseudotype = isMarkedAsPseudo(superclass);
-            boolean extendsSpecial = superclass != null && helper.isSpecial(superclass);
-            boolean extendsPrimitive = superclass != null && superclass.asType().getKind().isPrimitive();
-            if (!markedAsPseudo) {
-                if (extendsPseudotype) {
-                    helper.printError("Prohibited pseudoclass inheritance", type);
-                } else
-                if (extendsSpecial || extendsPrimitive) {
-                    helper.printError("Missing @Pseudo annotation", type);
-                } else {
-                    return;
-                }
-            } else {
-                if (!extendsPseudotype) {
-                    CompilationUnitTree unit = helper.getUnit(type);
-                    JavaFileObject src = unit.getSourceFile();
-                    if (superclass != null && helper.isFinal(superclass)) {
-                        helper.suppressDiagnostics(INHERIT_FROM_FINAL, src);
-                    } else
-                    if (extendsPrimitive) {
-                        helper.suppressDiagnostics(PRIM_TYPE_ARG, src);
-                    }
-                }
+        for (Element element : env.getRootElements()) {
+            switch (element.getKind()) {
+                case CLASS:
+                case INTERFACE:
+                    PseudoType pt = helper.pseudoTypeOf(trees.getPath(element));
+                    if (pt != null) pseudotypes.add(pt);
             }
-//            distribution.compute(DEFAULT_PLUGIN, (plugin, list) -> list != null ? list : new ArrayList<>()).add(type);
-//            if (type.getSuperclass() == helper.wrapperType) {
-//                distribution.compute(WRAPPER_PLUGIN, (plugin, list) -> list != null ? list : new ArrayList<>()).add(type);
-//            }
-            pseudoclasses.add(type);
-        });
-
-        { // remove errors for expressions like "Type<int>"
-            Set<Tree> parametrizedTypePos = new HashSet<>();
-
-            classes.forEach(type -> {
-                JavacUtils.scan(trees.getTree(type), node -> {
-                    if (node.getKind() != Tree.Kind.PARAMETERIZED_TYPE) return;
-                    ParameterizedTypeTree parType = (ParameterizedTypeTree) node;
-                    if (!pseudoclasses.contains(helper.<TypeElement>asElement(JavacUtils.typeOf(parType)))) return;
-                    parType.getTypeArguments().forEach(arg -> {
-                        if (arg.getKind() == Tree.Kind.PRIMITIVE_TYPE) parametrizedTypePos.add(arg);
-                    });
-                });
-            });
-
-            helper.suppressDiagnostics(PRIM_TYPE_ARG, diag -> {
-                Tree tree = JavacUtils.getTree(diag);
-                return parametrizedTypePos.contains(tree);
-            });
         }
 
-        helper.printNote(pseudoclasses.toString());
+        pseudotypes.forEach(System.out::println);
 
-        Map<Plugin,List<TypeUsages>> usages = new HashMap<>();
-
-        Set<TypeMirror> pseudoTypes = pseudoclasses.stream().map(Element::asType).collect(Collectors.toSet());
-        Set<TypeMirror> validated = new LinkedHashSet<>(pseudoclasses.size());
+        Map<CompilationUnitTree,List<PseudoType>> usages = new HashMap<>();
 
         distribution: {
 
-            class Validator implements Consumer<TypeMirror> {
-                boolean valid = true;
-                @Override
-                public void accept(TypeMirror t) {
-                    if (validated.contains(t)) return;
-                    TypeMirror supertype = helper.getSupertype(t);
-                    if (pseudoTypes.contains(supertype)) accept(supertype);
-                    TypeElement element = helper.asElement(t);
-                    valid &= DEFAULT_PLUGIN.validate(helper, element);
-                    for (SpecialPlugin plugin : SPECIAL_PLUGINS) {
-                        if (plugin.accept(helper, element))
-                            valid &= plugin.validate(helper, element);
-                    }
-                    validated.add(t);
-                }
+            boolean valid = true;
+
+            for (PseudoType type : pseudotypes) {
+                valid &= validator.validate(type);
             }
 
-            Validator validator = new Validator();
-            pseudoTypes.forEach(validator);
+            if (!valid) break distribution;
 
-            if (!validator.valid) break distribution;
+            Map<TypeMirror,PseudoType> mirrors = pseudotypes.stream()
+                    .collect(Collectors.toMap(t -> t.elem.asType(), t -> t));
 
-            Map<TypeMirror,TypeUsages> typeUsages = new HashMap<>();
-            BiConsumer<TypeMirror,CompilationUnitTree> distribute = (ref, unit) ->
-                    typeUsages.compute(ref, (type, using) -> using != null ? using : new TypeUsages(type)).add(unit);
+            BiConsumer<PseudoType,CompilationUnitTree> distribute = (ref, unit) -> {
+                ref.add(unit);
+                usages.compute(unit, (u, list) -> list != null ? list : new ArrayList<>()).add(ref);
+            };
 
-            collectCompilationUnits(roundEnv, unit -> true).forEach(unit -> {
+            collectCompilationUnits(env, unit -> true).forEach(unit -> {
                 unit.getImports().forEach(imp -> {
                     Tree id = imp.getQualifiedIdentifier();
                     TypeMirror ref = JavacUtils.typeOf(imp.isStatic() ? ((MemberSelectTree) id).getExpression() : id);
-                    if (pseudoTypes.contains(ref)) {
-                        distribute.accept(ref, unit);
+                    PseudoType pt = mirrors.get(ref);
+                    if (pt != null) {
+                        distribute.accept(pt, unit);
                     }
                 });
 
                 ExpressionTree unitPkg = unit.getPackageName();
-                pseudoTypes.forEach(ref -> {
-                    ExpressionTree refPkg = helper.getUnit(ref).getPackageName();
+                pseudotypes.forEach(type -> {
+                    ExpressionTree refPkg = type.path.getCompilationUnit().getPackageName();
                     if (Objects.equals(refPkg, unitPkg)) {
-                        distribute.accept(ref, unit);
+                        distribute.accept(type, unit);
                     }
                 });
 
             });
-
-            usages.put(DEFAULT_PLUGIN, new ArrayList<>(typeUsages.values()));
-            typeUsages.forEach((type, using) -> {
-                for (SpecialPlugin plugin : SPECIAL_PLUGINS) {
-                    if (!plugin.accept(helper, type)) continue;
-                    usages.compute(plugin, (p, use) -> use != null ? use : new ArrayList<>()).add(using);
-                }
-            });
         }
 
         if (helper.getDiagnosticQ().stream().noneMatch(diag -> diag.getKind() == Diagnostic.Kind.ERROR)) {
-            usages.forEach((plugin, use) -> plugin.process(helper, use));
+            pseudotypes.forEach(inliner::inline);
         }
 
 
-        pseudoclasses.forEach(type -> {
-            Tree tree = helper.getTreeUtils().getTree(type);
+
+        pseudotypes.forEach(type -> {
+            Tree tree = type.path.getLeaf();
             if (tree == null) throw new AssertionError();
-            CompilationUnitTree unit = helper.getUnit(type);
+            CompilationUnitTree unit = type.path.getCompilationUnit();
             Editors.filterTree(unit, true, node -> node != tree);
-//            try {
-//                System.out.println("--------" + unit.getSourceFile());
-//                new com.sun.tools.javac.tree.Pretty(new OutputStreamWriter(System.out), true).print(unit);
-//            } catch (IOException e) {
-//                throw new AssertionError(e);
-//            }
         });
 
         return false;
