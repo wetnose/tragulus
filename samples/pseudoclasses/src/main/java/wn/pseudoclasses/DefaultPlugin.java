@@ -1,6 +1,7 @@
 package wn.pseudoclasses;
 
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
@@ -119,17 +120,28 @@ public class DefaultPlugin implements Plugin {
     @Override
     public void process(ProcessingHelper helper, List<TypeUsages> usages) {
 
+        Trees trees = helper.getTreeUtils();
         TreeAssembler asm = helper.newAssembler();
 
         Set<TypeMirror> types = usages.stream().map(usage -> usage.type).collect(Collectors.toSet());
 
         usages.forEach(usage -> {
             TypeElement type = helper.asElement(usage.type);
-            TypeElement rep = type;
-            while (rep != null && (isMarkedAsPseudo(rep) || types.contains(rep.asType()))) {
-                rep = helper.asElement(rep.getSuperclass());
+            if (type.getKind() == ElementKind.INTERFACE) return;
+            TreePath typePath = trees.getPath(type);
+            ClassTree classTree = (ClassTree) typePath.getLeaf();
+            Tree extendsClause = classTree.getExtendsClause(), rep;
+            if (extendsClause.getKind() == Tree.Kind.PARAMETERIZED_TYPE) {
+                ParameterizedTypeTree superType = (ParameterizedTypeTree) extendsClause;
+                if (helper.asType(TreePath.getPath(typePath, superType)) != helper.wrapperType) {
+                    throw new IllegalStateException();
+                }
+                rep = superType.getTypeArguments().get(0);
+            } else {
+                rep = extendsClause;
             }
-            TypeElement replace = rep;
+
+            TypeMirror replace = trees.getTypeMirror(TreePath.getPath(typePath, rep));
             usage.units.forEach(unit -> {
                 unit.getTypeDecls().forEach(tree -> {
                     ((ClassTree) tree).getMembers().forEach(member -> {
@@ -137,7 +149,7 @@ public class DefaultPlugin implements Plugin {
                         VariableElement var = helper.asElement(unit, member);
                         TypeElement varType = helper.asElement(var.asType());
                         if (type == varType) {
-                            Editors.setType((VariableTree) member, asm.type(replace.asType()).asExpr());
+                            Editors.setType((VariableTree) member, asm.type(replace).asExpr());
                         }
                     });
                 });

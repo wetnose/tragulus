@@ -244,6 +244,12 @@ public class ProcessingHelper {
     }
 
 
+    public TypeMirror asType(TreePath path) {
+        Element element = asElement(path);
+        return element == null ? null : element.asType();
+    }
+
+
     public TypeMirror getSupertype(TypeMirror type) {
         return com.sun.tools.javac.code.Types.instance(context()).supertype((Type) type);
 //        for (TypeMirror t : types.directSupertypes(type)) {
