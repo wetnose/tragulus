@@ -2,8 +2,10 @@ package wn.pseudoclasses;
 
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Type;
@@ -15,13 +17,17 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.sun.tools.javac.code.Flags.FINAL;
+import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
+import static javax.lang.model.util.Elements.Origin.MANDATED;
 
 /**
  * Alexander A. Solovioff
@@ -54,7 +60,7 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
     public ProcessingHelper(ProcessingEnvironment processingEnv) {
         super(processingEnv);
         objectType = asType(Object.class);
-        wrapperType = asType(Wrapper.class);
+        wrapperType = asType(wn.pseudoclasses.Wrapper.class);
         specialTypes = Set.of(wrapperType);
     }
 
@@ -102,7 +108,7 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
 
 
     public TypeElement getSupertype(TreePath typePath) {
-        if (typePath.getLeaf().getKind() != Tree.Kind.CLASS) return null;
+        if (typePath.getLeaf().getKind() != Kind.CLASS) return null;
         ClassTree classTree = (ClassTree) typePath.getLeaf();
         Tree extendsClause= classTree.getExtendsClause();
         return extendsClause == null ? null : asElement(TreePath.getPath(typePath, extendsClause));
@@ -141,17 +147,36 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
         }
 
         ClassSymbol type = asElement(path);
-        if (!isMarkedAsPseudo(type)) return null;
+        JavacUtils.scan(leaf, tree -> {
+            ClassSymbol t;
+            if (tree.getKind().asInterface() != ClassTree.class) return;
+            if (isMarkedAsPseudo(t = asElement(TreePath.getPath(path, tree)))) {
+                if (t.isLocal()) {
+                    printError("local pseudoclasses not supported", path);
+                } else {
+                    printError("nested pseudoclasses not supported", path);
+                }
+            }
+        });
+
+        if (!isMarkedAsPseudo(type)) {
+            return null;
+        }
 
         if (type.getKind() == ElementKind.INTERFACE) {
             return new Template(path);
         }
 
-        ClassTree classTree = (ClassTree) leaf;
-        if ((type.flags() & FINAL) == 0) {
+        final long flags = type.flags();
+        if ((flags & FINAL) == 0) {
             printError("missing final modifier", path);
         }
 
+//        if (type.isInner() && (flags & STATIC) == 0) {
+//            printError("missing static modifier", path);
+//        }
+
+        ClassTree classTree = (ClassTree) leaf;
         Tree extendsClause = classTree.getExtendsClause();
         if (extendsClause == null) {
             if (isMarkedAsPseudo(type)) printError("missing base type", path);
@@ -159,17 +184,18 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
         }
 
         Tree baseTree = extendsClause;
-        base_check:
-        if (extendsClause.getKind() == Tree.Kind.PARAMETERIZED_TYPE) {
+        boolean wrapper = false;
+        if (extendsClause.getKind() == Kind.PARAMETERIZED_TYPE) {
             TypeMirror baseType = asType(TreePath.getPath(path, extendsClause));
             if (baseType != wrapperType) {
                 if (!isMarkedAsPseudo(type)) return null;
-                break base_check;
+            } else {
+                wrapper = true;
+                baseTree = ((ParameterizedTypeTree) extendsClause).getTypeArguments().get(0);
             }
-            baseTree = ((ParameterizedTypeTree) extendsClause).getTypeArguments().get(0);
         }
 
-        if (baseTree.getKind() == Tree.Kind.PRIMITIVE_TYPE) suppressDiagnostics(Err.PRIM_TYPE_ARG, baseTree);
+        if (baseTree.getKind() == Kind.PRIMITIVE_TYPE) suppressDiagnostics(Err.PRIM_TYPE_ARG, baseTree);
         TypeMirror baseType = getTreeUtils().getTypeMirror(TreePath.getPath(path, baseTree));
         if (baseType == null) return null;
 
@@ -181,7 +207,7 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
                 return null;
             }
         }
-        return new TypeWrapper(path, baseType);
+        return wrapper ? new Wrapper(path, baseType) : new Subtype(path, baseType);
     }
 
 
@@ -220,18 +246,123 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
     }
 
 
-    class TypeWrapper extends PseudoType {
+    abstract class Extension extends PseudoType {
 
-        TypeMirror wrappedType;
+        static final int ST_CREATED = 0;
+        static final int ST_VALID   = 1;
+        static final int ST_INVALID = 2;
 
-        TypeWrapper(TreePath path, TypeMirror wrappedType) {
+        final TypeMirror wrappedType;
+        final ArrayList<Method> constructors = new ArrayList<>();
+        final ArrayList<Method> methods = new ArrayList<>();
+
+        int status = ST_CREATED;
+
+        Extension(TreePath path, TypeMirror wrappedType) {
             super(path);
             this.wrappedType = wrappedType;
+        }
+
+        boolean decompose() {
+            if (status == ST_CREATED) {
+                status = ST_VALID;
+                Elements elements = getElementUtils();
+                ClassTree classTree = (ClassTree) path.getLeaf();
+                for (Tree member : classTree.getMembers()) {
+                    TreePath path = TreePath.getPath(this.path, member);
+                    switch (member.getKind()) {
+                        case METHOD:
+                            Element elem = asElement(path);
+                            if (elem.getKind() == CONSTRUCTOR) {
+                                if (elements.getOrigin(elem) == MANDATED) break;
+                                constructors.add(new Method(path));
+                            } else {
+                                methods.add(new Method(path));
+                            }
+                            break;
+                        default:
+                            printError("unsupported declaration", path);
+                            status = ST_INVALID;
+                            break;
+                    }
+                }
+//                TypeElement elem = this.elem;
+//                for (Element member : elem.getEnclosedElements()) {
+//                    System.out.println(trees.getTree(member));
+//                    switch (member.getKind()) {
+//                        case CONSTRUCTOR:
+//                            constructors.add(new Method(trees.getPath(member)));
+//                            break;
+//                        case METHOD:
+//                            methods.add(new Method(trees.getPath(member)));
+//                            break;
+//                        default:
+//                            printError("unsupported declaration", member);
+//                            status = ST_INVALID;
+//                            break;
+//                    }
+//                }
+
+            }
+            return status == ST_VALID;
         }
 
         @Override
         public String toString() {
             return elem + " (wrapper for " + wrappedType + ')';
+        }
+    }
+
+
+    class Subtype extends Extension {
+
+        Subtype(TreePath path, TypeMirror wrappedType) {
+            super(path, wrappedType);
+        }
+
+        @Override
+        boolean decompose() {
+            if (status == ST_CREATED) {
+                super.decompose();
+                for (Method c : constructors) {
+                    printError("prohibited constructor declaration", c.path);
+                }
+            }
+            return status == ST_INVALID;
+        }
+    }
+
+
+    class Wrapper extends Extension {
+
+        Wrapper(TreePath path, TypeMirror wrappedType) {
+            super(path, wrappedType);
+        }
+
+        @Override
+        boolean decompose() {
+            if (status == ST_CREATED) {
+                super.decompose();
+                for (Method c : constructors) {
+                    TreePath path = c.path;
+                    MethodTree mth = (MethodTree) c.path.getLeaf();
+                    if (mth.getParameters().size() != 1) {
+                        printError("prohibited constructor declaration", path);
+                        status = ST_INVALID;
+                    }
+                }
+            }
+            return status == ST_VALID;
+        }
+    }
+
+
+    class Method {
+
+        final TreePath path;
+
+        Method(TreePath path) {
+            this.path = path;
         }
     }
 }

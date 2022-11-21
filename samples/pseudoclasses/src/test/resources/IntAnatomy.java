@@ -34,13 +34,13 @@ public interface IntAnatomy {
         return (s >>> 16) + (s & 0xffff);
     }
 
-    @Override
-    default String toString() {
-        byte[] s = new byte[8];
-        for (int i=0, n=get(); i < 8; i++, n >>= 4) {
-            int z = n & 0xf, a = z - 10;
-            s[i] = (byte) (a < 0 ? '0' + z : 'a' + a);
-        }
-        return new String(s, StandardCharsets.US_ASCII);
-    }
+//    @Override
+//    default String toString() {
+//        byte[] s = new byte[8];
+//        for (int i=0, n=get(); i < 8; i++, n >>= 4) {
+//            int z = n & 0xf, a = z - 10;
+//            s[i] = (byte) (a < 0 ? '0' + z : 'a' + a);
+//        }
+//        return new String(s, StandardCharsets.US_ASCII);
+//    }
 }

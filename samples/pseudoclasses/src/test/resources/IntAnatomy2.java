@@ -9,6 +9,10 @@ import wn.pseudoclasses.Wrapper;
 @Pseudo
 public final class IntAnatomy2 extends Wrapper<int> implements IntAnatomy {
 
+//    IntAnatomy2() {
+//        System.out.println();
+//    }
+
     @Override
     public int get() {
         return this.value;

@@ -319,6 +319,14 @@ public class ProcessingHelper {
 //    }
 
 
+    public TypeMirror typeOf(TreePath path, Tree tree) {
+        TypeMirror type = JavacUtils.typeOf(tree);
+        if (type != null) return type;
+        Element element = asElement(TreePath.getPath(path, tree));
+        return element == null ? null : element.asType();
+    }
+
+
     public TypeMirror attribute(CompilationUnitTree unit) {
         return attribute(new TreePath(unit));
     }

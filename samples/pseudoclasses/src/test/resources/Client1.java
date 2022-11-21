@@ -2,10 +2,12 @@
 public class Client1 {
 
     IntAnatomy2 ext;
-//
-//    public Client1() {
-//        ext = new Extension2();
-//    }
+//    MyString str;
+
+    public Client1() {
+//        ext = str;
+        IntAnatomy2 an = (IntAnatomy2) 15;
+    }
 
 
     public Object test1() {

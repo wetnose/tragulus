@@ -7,6 +7,8 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import com.sun.tools.javac.tree.JCTree.JCModifiers;
+import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.JCDiagnostic;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 
@@ -61,9 +63,14 @@ public class JavacUtils {
 
 
     public static boolean complile(Collection<File> javaFiles, File outDir, int opt, Processor processor) throws IOException {
+        return complile(javaFiles, outDir, opt, processor, new DiagnosticCollector<>());
+    }
+
+
+    public static boolean complile(Collection<File> javaFiles, File outDir, int opt, Processor processor,
+                                   DiagnosticCollector<JavaFileObject> diagnostics) throws IOException {
         if (!emptyDir(outDir)) throw new IOException("Cannot empty " + outDir);
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics, null, null);
         fileManager.setLocation(StandardLocation.CLASS_OUTPUT, singletonList(outDir));
         ArrayList<String> options;
@@ -364,5 +371,17 @@ public class JavacUtils {
     public static <E extends Element> E asElement(TypeMirror type) {
         //noinspection unchecked
         return (E) ((Type) type).asElement();
+    }
+
+
+    public static <E extends Element> E asElement(Tree tree) {
+        //noinspection unchecked
+        return (E) TreeInfo.symbolFor((JCTree) tree);
+    }
+
+
+    public static long modifiersOf(ClassTree tree) {
+        return ((JCModifiers) tree.getModifiers()).flags;
+
     }
 }
