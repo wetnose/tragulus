@@ -10,17 +10,16 @@ import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
-import com.sun.tools.javac.code.Type;
 import wn.tragulus.JavacUtils;
+import wn.tragulus.ProcessingHelper;
 
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.util.ArrayList;
@@ -39,7 +38,7 @@ import static wn.tragulus.JavacUtils.walkOver;
  * Date: 17.11.2022
  * Time: 3:58 AM
  */
-class ProcessingHelper extends wn.tragulus.ProcessingHelper {
+class Pseudoclasses {
 
     enum Err {
 
@@ -57,18 +56,27 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
     }
 
 
+    final ProcessingHelper helper;
+    final Trees            trees;
+    final Types            types;
+    final Elements         elements;
+
     final TypeMirror objectType;
     final TypeMirror wrapperType;
     final TypeMirror pseudoType;
     final TypeMirror overrideType;
 
 
-    public ProcessingHelper(ProcessingEnvironment processingEnv) {
-        super(processingEnv);
-        objectType   = asType(Object.class);
-        wrapperType  = asType(wn.pseudoclasses.Wrapper.class);
-        pseudoType   = asType(wn.pseudoclasses.Pseudo.class);
-        overrideType = asType(Override.class);
+    public Pseudoclasses(ProcessingHelper helper) {
+        this.helper   = helper;
+        this.trees    = helper.getTreeUtils();
+        this.types    = helper.getTypeUtils();
+        this.elements = helper.getElementUtils();
+
+        objectType    = helper.asType(Object.class);
+        wrapperType   = helper.asType(wn.pseudoclasses.Wrapper.class);
+        pseudoType    = helper.asType(wn.pseudoclasses.Pseudo.class);
+        overrideType  = helper.asType(Override.class);
     }
 
 
@@ -78,22 +86,12 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
 
 
     TypeElement getBaseType(TypeElement type) {
-        return asElement(type.getSuperclass());
+        return helper.asElement(type.getSuperclass());
     }
 
 
     TypeElement getBaseType(TypeMirror type) {
-        return getBaseType((TypeElement) asElement(type));
-    }
-
-
-    @Override
-    public TypeMirror getSupertype(TypeMirror type) {
-        TypeMirror superclass = super.getSupertype(type);
-        if (superclass.getKind() == TypeKind.ERROR) {
-            return ((Type.ErrorType) superclass).getOriginalType();
-        }
-        return superclass;
+        return getBaseType((TypeElement) helper.asElement(type));
     }
 
 
@@ -101,22 +99,22 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
         if (typePath.getLeaf().getKind() != Kind.CLASS) return null;
         ClassTree classTree = (ClassTree) typePath.getLeaf();
         Tree extendsClause= classTree.getExtendsClause();
-        return extendsClause == null ? null : asElement(TreePath.getPath(typePath, extendsClause));
+        return extendsClause == null ? null : helper.asElement(TreePath.getPath(typePath, extendsClause));
     }
 
 
     void suppressDiagnostics(Err err, Predicate<Diagnostic<JavaFileObject>> filter) {
-        filterDiagnostics(diag -> diag.getCode().equals(err.code) && filter.test(diag));
+        helper.filterDiagnostics(diag -> diag.getCode().equals(err.code) && filter.test(diag));
     }
 
 
     void suppressDiagnostics(Err err, JavaFileObject src) {
-        filterDiagnostics(diag -> diag.getCode().equals(err.code) && diag.getSource() == src);
+        helper.filterDiagnostics(diag -> diag.getCode().equals(err.code) && diag.getSource() == src);
     }
 
 
     void suppressDiagnostics(Err err, Tree tree) {
-        filterDiagnostics(diag -> diag.getCode().equals(err.code) && JavacUtils.getTree(diag) == tree);
+        helper.filterDiagnostics(diag -> diag.getCode().equals(err.code) && JavacUtils.getTree(diag) == tree);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -135,7 +133,6 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
 
 
     private void validate(PseudoType type) {
-        Trees trees = getTreeUtils();
         boolean pub = isPublic(type.elem);
         Scope scope = trees.getScope(type.path);
         TypeMirror tm = type.elem.asType();
@@ -147,11 +144,11 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
                 case ANNOTATION:
                     TypeMirror anno = JavacUtils.typeOf(node);
                     if (anno != overrideType && anno != pseudoType) {
-                        printError("unexpected annotation type", path);
+                        helper.printError("unexpected annotation type", path);
                     }
                     break;
                 case IDENTIFIER: {
-                    attribute(path);
+                    helper.attribute(path);
                     Element element = trees.getElement(path);
                     if (element == null) break;
                     accessCheck: {
@@ -186,7 +183,7 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
                                 if (trees.isAccessible(scope, (TypeElement) element)) break accessCheck;
                             }
                         }
-                        printError(
+                        helper.printError(
                                 "no access to " + element.getKind().toString().toLowerCase() + " " + element, path);
                     }
                     break;
@@ -208,15 +205,15 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
                 return null;
         }
 
-        ClassSymbol type = asElement(path);
+        ClassSymbol type = helper.asElement(path);
         JavacUtils.scan(leaf, tree -> {
             ClassSymbol t;
             if (tree.getKind().asInterface() != ClassTree.class) return;
-            if (isMarkedAsPseudo(t = asElement(TreePath.getPath(path, tree)))) {
+            if (isMarkedAsPseudo(t = helper.asElement(TreePath.getPath(path, tree)))) {
                 if (t.isLocal()) {
-                    printError("local pseudoclasses not supported", path);
+                    helper.printError("local pseudoclasses not supported", path);
                 } else {
-                    printError("nested pseudoclasses not supported", path);
+                    helper.printError("nested pseudoclasses not supported", path);
                 }
             }
         });
@@ -231,7 +228,7 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
 
         final long flags = type.flags();
         if ((flags & FINAL) == 0) {
-            printError("missing final modifier", path);
+            helper.printError("missing final modifier", path);
         }
 
 //        if (type.isInner() && (flags & STATIC) == 0) {
@@ -241,14 +238,14 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
         ClassTree classTree = (ClassTree) leaf;
         Tree extendsClause = classTree.getExtendsClause();
         if (extendsClause == null) {
-            if (isMarkedAsPseudo(type)) printError("missing base type", path);
+            if (isMarkedAsPseudo(type)) helper.printError("missing base type", path);
             return null;
         }
 
         Tree baseTree = extendsClause;
         boolean wrapper = false;
         if (extendsClause.getKind() == Kind.PARAMETERIZED_TYPE) {
-            TypeMirror baseType = asType(TreePath.getPath(path, extendsClause));
+            TypeMirror baseType = helper.asType(TreePath.getPath(path, extendsClause));
             if (baseType != wrapperType) {
                 if (!isMarkedAsPseudo(type)) return null;
             } else {
@@ -258,14 +255,14 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
         }
 
         if (baseTree.getKind() == Kind.PRIMITIVE_TYPE) suppressDiagnostics(Err.PRIM_TYPE_ARG, baseTree);
-        TypeMirror baseType = getTreeUtils().getTypeMirror(TreePath.getPath(path, baseTree));
+        TypeMirror baseType = trees.getTypeMirror(TreePath.getPath(path, baseTree));
         if (baseType == null) return null;
 
         if (!baseType.getKind().isPrimitive()) {
-            ClassSymbol baseElem = asElement(baseType);
+            ClassSymbol baseElem = helper.asElement(baseType);
             if ((baseElem.flags() & FINAL) != 0) suppressDiagnostics(Err.INHERIT_FROM_FINAL, extendsClause);
             if (isMarkedAsPseudo(baseElem)) {
-                printError("prohibited pseudoclass inheritance", type);
+                helper.printError("prohibited pseudoclass inheritance", type);
                 return null;
             }
         }
@@ -282,11 +279,11 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
 
         PseudoType(TreePath path) {
             this.path = path;
-            this.elem = asElement(path);
+            this.elem = helper.asElement(path);
         }
 
-        ProcessingHelper helper() {
-            return ProcessingHelper.this;
+        Pseudoclasses helper() {
+            return Pseudoclasses.this;
         }
 
         void add(CompilationUnitTree unit) {
@@ -328,13 +325,12 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
         boolean decompose() {
             if (status == ST_CREATED) {
                 status = ST_VALID;
-                Elements elements = getElementUtils();
                 ClassTree classTree = (ClassTree) path.getLeaf();
                 for (Tree member : classTree.getMembers()) {
                     TreePath path = TreePath.getPath(this.path, member);
                     switch (member.getKind()) {
                         case METHOD:
-                            Element elem = asElement(path);
+                            Element elem = helper.asElement(path);
                             if (elem.getKind() == CONSTRUCTOR) {
                                 if (elements.getOrigin(elem) == MANDATED) break;
                                 constructors.add(new Method(path));
@@ -343,7 +339,7 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
                             }
                             break;
                         default:
-                            printError("unsupported declaration", path);
+                            helper.printError("unsupported declaration", path);
                             status = ST_INVALID;
                             break;
                     }
@@ -386,14 +382,13 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
         boolean decompose() {
             if (status == ST_CREATED) {
                 super.decompose();
-                Trees trees = getTreeUtils();
                 for (Method c : constructors) {
-                    printError("prohibited constructor declaration", c.path);
+                    helper.printError("prohibited constructor declaration", c.path);
                 }
                 for (Method m : methods) {
                     Element elem = trees.getElement(m.path);
-                    if (!getOverriddenMethods(elem).isEmpty()) {
-                        printError("method overriding not supported", m.path);
+                    if (!helper.getOverriddenMethods(elem).isEmpty()) {
+                        helper.printError("method overriding not supported", m.path);
                         status = ST_INVALID;
                     }
                 }
@@ -417,7 +412,7 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
                     TreePath path = c.path;
                     MethodTree mth = (MethodTree) c.path.getLeaf();
                     if (mth.getParameters().size() != 1) {
-                        printError("prohibited constructor declaration", path);
+                        helper.printError("prohibited constructor declaration", path);
                         status = ST_INVALID;
                     }
                 }

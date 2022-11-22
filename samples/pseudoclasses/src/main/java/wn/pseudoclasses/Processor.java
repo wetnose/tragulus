@@ -5,7 +5,7 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.Trees;
-import wn.pseudoclasses.ProcessingHelper.PseudoType;
+import wn.pseudoclasses.Pseudoclasses.PseudoType;
 import wn.tragulus.BasicProcessor;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
@@ -37,21 +37,12 @@ public class Processor extends BasicProcessor {
 
     final Inliner inliner = new Inliner();
 
-    ProcessingHelper helper;
-
-
-    @Override
-    public synchronized void init(ProcessingEnvironment processingEnv) {
-        super.init(processingEnv);
-        helper = new ProcessingHelper(processingEnv);
-    }
-
-
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment env) {
 
         if (env.getRootElements().isEmpty()) return false;
 
+        Pseudoclasses pseudo = new Pseudoclasses(helper);
         Trees trees = helper.getTreeUtils();
 
         ArrayList<PseudoType> pseudotypes = new ArrayList<>();
@@ -60,7 +51,7 @@ public class Processor extends BasicProcessor {
             switch (element.getKind()) {
                 case CLASS:
                 case INTERFACE:
-                    PseudoType pt = helper.pseudoTypeOf(trees.getPath(element));
+                    PseudoType pt = pseudo.pseudoTypeOf(trees.getPath(element));
                     if (pt != null) pseudotypes.add(pt);
             }
         }

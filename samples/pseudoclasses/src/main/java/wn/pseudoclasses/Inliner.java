@@ -4,13 +4,13 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import wn.pseudoclasses.ProcessingHelper.Extension;
-import wn.pseudoclasses.ProcessingHelper.PseudoType;
+import wn.pseudoclasses.Pseudoclasses.Extension;
+import wn.pseudoclasses.Pseudoclasses.PseudoType;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils.TreeWalker;
+import wn.tragulus.ProcessingHelper;
 import wn.tragulus.TreeAssembler;
 
-import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
@@ -29,7 +29,8 @@ class Inliner {
 
         if (type instanceof Extension) {
             //System.out.println("---- test " + type.elem);
-            ProcessingHelper helper = type.helper();
+            Pseudoclasses pseudo = type.helper();
+            ProcessingHelper helper = pseudo.helper;
             TreeAssembler asm = helper.newAssembler();
 
             TypeMirror replace = ((Extension) type).wrappedType;

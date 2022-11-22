@@ -1,6 +1,10 @@
 import wn.pseudoclasses.Processor;
 import wn.tragulus.JavacUtils;
 
+import java.io.File;
+import java.util.Arrays;
+import java.util.List;
+
 import static wn.tragulus.JavacUtils.OPT_PROCESS_ERRORS;
 
 /**
@@ -11,7 +15,11 @@ import static wn.tragulus.JavacUtils.OPT_PROCESS_ERRORS;
 public class XXX {
 
     public static void main(String[] args) throws Exception {
-        JavacUtils.complile("/Users/asoloviev/work/jobbing/tragulus/samples/pseudoclasses/src/test/resources", OPT_PROCESS_ERRORS, new Processor());
+        File src = new File("/Users/asoloviev/work/jobbing/tragulus/samples/pseudoclasses/src/test/resources");
+        List<File> files = Arrays.asList(
+                new File(src, "Client1.java"),
+                new File(src, "IntAnatomy0.java"));
+        JavacUtils.complile(files, new File("tmp"), OPT_PROCESS_ERRORS, new Processor());
         //JavacUtils.complile("/Users/asoloviev/work/jobbing/tragulus/samples/pseudoclasses/src/test/resources", new Processor2());
     }
 }
