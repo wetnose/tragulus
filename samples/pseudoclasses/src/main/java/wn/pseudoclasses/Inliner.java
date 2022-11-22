@@ -4,8 +4,8 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import wn.pseudoclasses.Pseudoclasses.Extension;
-import wn.pseudoclasses.Pseudoclasses.PseudoType;
+import wn.pseudoclasses.Pseudos.Extension;
+import wn.pseudoclasses.Pseudos.PseudoType;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils.TreeWalker;
 import wn.tragulus.ProcessingHelper;
@@ -29,7 +29,7 @@ class Inliner {
 
         if (type instanceof Extension) {
             //System.out.println("---- test " + type.elem);
-            Pseudoclasses pseudo = type.helper();
+            Pseudos pseudo = type.helper();
             ProcessingHelper helper = pseudo.helper;
             TreeAssembler asm = helper.newAssembler();
 
@@ -39,7 +39,7 @@ class Inliner {
                 public void accept(TreeWalker walker) {
                     TreePath path = walker.path();
                     Tree node = path.getLeaf();
-                    //System.out.println(node + " " + node.getKind());
+                    System.out.println(node + " " + node.getKind());
                     switch (node.getKind()) {
                         case VARIABLE:
                             VariableTree var = (VariableTree) node;

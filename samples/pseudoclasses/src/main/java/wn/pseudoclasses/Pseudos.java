@@ -38,7 +38,7 @@ import static wn.tragulus.JavacUtils.walkOver;
  * Date: 17.11.2022
  * Time: 3:58 AM
  */
-class Pseudoclasses {
+class Pseudos {
 
     enum Err {
 
@@ -67,7 +67,7 @@ class Pseudoclasses {
     final TypeMirror overrideType;
 
 
-    public Pseudoclasses(ProcessingHelper helper) {
+    public Pseudos(ProcessingHelper helper) {
         this.helper   = helper;
         this.trees    = helper.getTreeUtils();
         this.types    = helper.getTypeUtils();
@@ -120,6 +120,11 @@ class Pseudoclasses {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // PSEUDO TYPES                                                                                                   //
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    PseudoType pseudoTypeOf(Element element) {
+        return element instanceof TypeElement ? pseudoTypeOf(trees.getPath(element)) : null;
+    }
 
 
     PseudoType pseudoTypeOf(TreePath path) {
@@ -282,8 +287,8 @@ class Pseudoclasses {
             this.elem = helper.asElement(path);
         }
 
-        Pseudoclasses helper() {
-            return Pseudoclasses.this;
+        Pseudos helper() {
+            return Pseudos.this;
         }
 
         void add(CompilationUnitTree unit) {

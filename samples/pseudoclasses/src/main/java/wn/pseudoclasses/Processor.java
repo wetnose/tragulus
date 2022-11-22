@@ -4,13 +4,11 @@ import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.Tree;
-import com.sun.source.util.Trees;
-import wn.pseudoclasses.Pseudoclasses.PseudoType;
+import wn.pseudoclasses.Pseudos.PseudoType;
 import wn.tragulus.BasicProcessor;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
 
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
@@ -42,16 +40,14 @@ public class Processor extends BasicProcessor {
 
         if (env.getRootElements().isEmpty()) return false;
 
-        Pseudoclasses pseudo = new Pseudoclasses(helper);
-        Trees trees = helper.getTreeUtils();
-
+        Pseudos pseudos = new Pseudos(helper);
         ArrayList<PseudoType> pseudotypes = new ArrayList<>();
 
         for (Element element : env.getRootElements()) {
             switch (element.getKind()) {
                 case CLASS:
                 case INTERFACE:
-                    PseudoType pt = pseudo.pseudoTypeOf(trees.getPath(element));
+                    PseudoType pt = pseudos.pseudoTypeOf(element);
                     if (pt != null) pseudotypes.add(pt);
             }
         }
