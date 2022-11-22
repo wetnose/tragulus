@@ -45,6 +45,7 @@ class Pseudos {
         INHERIT_FROM_FINAL   ("compiler.err.cant.inherit.from.final"),
         PRIM_TYPE_ARG        ("compiler.err.type.found.req"),
         OVERRIDES_OBJ_MEMBER ("compiler.err.default.overrides.object.member"),
+        CANNOT_CAST          ("compiler.err.prob.found.req"),
 
         ;
 
@@ -144,7 +145,7 @@ class Pseudos {
         walkOver(type.path, walker -> {
             TreePath path = walker.path();
             Tree node = path.getLeaf();
-            System.out.println(node.getKind() + ": " + node);
+            //System.out.println(node.getKind() + ": " + node);
             switch (node.getKind()) {
                 case ANNOTATION:
                     TypeMirror anno = JavacUtils.typeOf(node);
@@ -287,7 +288,7 @@ class Pseudos {
             this.elem = helper.asElement(path);
         }
 
-        Pseudos helper() {
+        Pseudos pseudos() {
             return Pseudos.this;
         }
 

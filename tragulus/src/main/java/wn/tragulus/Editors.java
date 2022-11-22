@@ -188,6 +188,10 @@ public class Editors {
         ((JCNewArray) node).elemtype = (JCExpression) type;
     }
 
+    public static void setType(TypeCastTree node, ExpressionTree type) {
+        ((JCTypeCast) node).clazz = (JCTree) type;
+    }
+
     public static void setEnclosingExpression(NewClassTree node, ExpressionTree enclosingExpression) {
         ((JCNewClass) node).encl = (JCExpression) enclosingExpression;
     }

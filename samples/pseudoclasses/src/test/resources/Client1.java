@@ -1,8 +1,13 @@
-
 public class Client1 {
 
     public void test1() {
-        IntAnatomy0 an = (IntAnatomy0) 15;
+        IntAnatomy0 an = (IntAnatomy0) readInt();
+        System.out.println(an);
+    }
+
+
+    static int readInt() {
+        return 15;
     }
 
 
