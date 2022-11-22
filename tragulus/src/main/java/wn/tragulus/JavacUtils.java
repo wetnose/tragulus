@@ -3,6 +3,7 @@ package wn.tragulus;
 import com.sun.source.tree.*;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
@@ -32,6 +33,7 @@ import java.util.Collection;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static com.sun.tools.javac.code.Flags.PUBLIC;
 import static com.sun.tools.javac.tree.JCTree.Tag.TYPEBOUNDKIND;
 import static java.util.Collections.singletonList;
 import static wn.tragulus.Editors.replaceTree;
@@ -185,6 +187,11 @@ public class JavacUtils {
 
     public static boolean isVariableElement(Element element) {
         return element instanceof VariableElement;
+    }
+
+
+    public static boolean isPublic(Element element) {
+        return (((Symbol) element).flags() & PUBLIC) != 0;
     }
 
 

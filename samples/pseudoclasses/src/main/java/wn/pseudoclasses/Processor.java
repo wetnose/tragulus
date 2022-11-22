@@ -17,7 +17,6 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import javax.tools.Diagnostic;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -36,7 +35,6 @@ import java.util.stream.Collectors;
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class Processor extends BasicProcessor {
 
-    final Validator validator = new Validator();
     final Inliner inliner = new Inliner();
 
     ProcessingHelper helper;
@@ -71,13 +69,9 @@ public class Processor extends BasicProcessor {
 
         Map<CompilationUnitTree,List<PseudoType>> usages = new HashMap<>();
 
+        boolean valid = helper.noErrorReports();
+
         distribution: {
-
-            boolean valid = true;
-
-            for (PseudoType type : pseudotypes) {
-                valid &= validator.validate(type);
-            }
 
             if (!valid) break distribution;
 
@@ -110,11 +104,9 @@ public class Processor extends BasicProcessor {
             });
         }
 
-        if (helper.getDiagnosticQ().stream().noneMatch(diag -> diag.getKind() == Diagnostic.Kind.ERROR)) {
+        if (valid && helper.noErrorReports()) {
             pseudotypes.forEach(inliner::inline);
         }
-
-
 
         pseudotypes.forEach(type -> {
             Tree tree = type.path.getLeaf();

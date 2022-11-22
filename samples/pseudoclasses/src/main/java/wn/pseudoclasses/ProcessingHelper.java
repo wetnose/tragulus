@@ -4,9 +4,11 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ParameterizedTypeTree;
+import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Type;
 import wn.tragulus.JavacUtils;
@@ -15,6 +17,7 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
@@ -28,6 +31,8 @@ import java.util.function.Predicate;
 import static com.sun.tools.javac.code.Flags.FINAL;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.util.Elements.Origin.MANDATED;
+import static wn.tragulus.JavacUtils.isPublic;
+import static wn.tragulus.JavacUtils.walkOver;
 
 /**
  * Alexander A. Solovioff
@@ -54,36 +59,21 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
 
     final TypeMirror objectType;
     final TypeMirror wrapperType;
-    final Set<TypeMirror> specialTypes;
+    final TypeMirror pseudoType;
+    final TypeMirror overrideType;
 
 
     public ProcessingHelper(ProcessingEnvironment processingEnv) {
         super(processingEnv);
-        objectType = asType(Object.class);
-        wrapperType = asType(wn.pseudoclasses.Wrapper.class);
-        specialTypes = Set.of(wrapperType);
+        objectType   = asType(Object.class);
+        wrapperType  = asType(wn.pseudoclasses.Wrapper.class);
+        pseudoType   = asType(wn.pseudoclasses.Pseudo.class);
+        overrideType = asType(Override.class);
     }
 
 
     static boolean isMarkedAsPseudo(TypeElement type) {
         return type != null && type.getAnnotation(Pseudo.class) != null;
-    }
-
-
-    boolean isPseudoclass(TypeElement type) {
-        if (type == null) return false;
-        if (specialTypes.contains(type.asType())) return true;
-        return isMarkedAsPseudo(type) || isPseudoclass(asElement(type.getSuperclass()));
-    }
-
-
-    boolean isSpecial(Element type) {
-        return type != null && type.getKind() == ElementKind.CLASS && specialTypes.contains(type.asType());
-    }
-
-
-    boolean isSpecial(TypeMirror type) {
-        return type != null && specialTypes.contains(type);
     }
 
 
@@ -135,6 +125,78 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
 
 
     PseudoType pseudoTypeOf(TreePath path) {
+        PseudoType type = detectPseudotype(path);
+        if (type != null) {
+            if (type instanceof Extension) ((Extension) type).decompose();
+            validate(type);
+        }
+        return type;
+    }
+
+
+    private void validate(PseudoType type) {
+        Trees trees = getTreeUtils();
+        boolean pub = isPublic(type.elem);
+        Scope scope = trees.getScope(type.path);
+        TypeMirror tm = type.elem.asType();
+        walkOver(type.path, walker -> {
+            TreePath path = walker.path();
+            Tree node = path.getLeaf();
+            System.out.println(node.getKind() + ": " + node);
+            switch (node.getKind()) {
+                case ANNOTATION:
+                    TypeMirror anno = JavacUtils.typeOf(node);
+                    if (anno != overrideType && anno != pseudoType) {
+                        printError("unexpected annotation type", path);
+                    }
+                    break;
+                case IDENTIFIER: {
+                    attribute(path);
+                    Element element = trees.getElement(path);
+                    if (element == null) break;
+                    accessCheck: {
+                        boolean member;
+                        switch (element.getKind()) {
+                            case ENUM:
+                            case CLASS:
+                            case INTERFACE:
+                            case ANNOTATION_TYPE:
+                                member = false;
+                                break;
+                            case FIELD:
+                            case METHOD:
+                            case CONSTRUCTOR:
+                                member = true;
+                                break;
+                            default:
+                                break accessCheck;
+                        }
+                        if (pub) {
+                            if (isPublic(element)) break accessCheck;
+                            if (!member) break;
+                            TypeMirror enclosing = element.getEnclosingElement().asType();
+                            if (enclosing == tm) break accessCheck;
+                        } else {
+                            if (member) {
+                                TypeMirror enclosing = element.getEnclosingElement().asType();
+                                if (!(enclosing instanceof DeclaredType)) break accessCheck;
+                                if (trees.isAccessible(scope, element, (DeclaredType) enclosing))
+                                    break accessCheck;
+                            } else {
+                                if (trees.isAccessible(scope, (TypeElement) element)) break accessCheck;
+                            }
+                        }
+                        printError(
+                                "no access to " + element.getKind().toString().toLowerCase() + " " + element, path);
+                    }
+                    break;
+                }
+            }
+        });
+    }
+
+
+    private PseudoType detectPseudotype(TreePath path) {
         if (path == null) return null;
 
         Tree leaf = path.getLeaf();
@@ -324,8 +386,16 @@ class ProcessingHelper extends wn.tragulus.ProcessingHelper {
         boolean decompose() {
             if (status == ST_CREATED) {
                 super.decompose();
+                Trees trees = getTreeUtils();
                 for (Method c : constructors) {
                     printError("prohibited constructor declaration", c.path);
+                }
+                for (Method m : methods) {
+                    Element elem = trees.getElement(m.path);
+                    if (!getOverriddenMethods(elem).isEmpty()) {
+                        printError("method overriding not supported", m.path);
+                        status = ST_INVALID;
+                    }
                 }
             }
             return status == ST_INVALID;

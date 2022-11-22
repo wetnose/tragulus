@@ -124,6 +124,21 @@ public class ValidatorTest {
     }
 
 
+    @Test
+    public void unexpectedAnnotation() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertFalse( compile(new Processor(), collector, "UnexpectedAnnotation") );
+        assertReport(collector, Diagnostic.Kind.ERROR, "unexpected annotation type");
+    }
+
+
+    @Test
+    public void intAnatomy() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertTrue( compile(new Processor(), collector, "IntAnatomy2") );
+    }
+
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

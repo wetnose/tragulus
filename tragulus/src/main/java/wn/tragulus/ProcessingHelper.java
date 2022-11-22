@@ -405,6 +405,11 @@ public class ProcessingHelper {
     }
 
 
+    public boolean noErrorReports() {
+        return getDiagnosticQ().stream().noneMatch(diag -> diag.getKind() == Diagnostic.Kind.ERROR);
+    }
+
+
     public Queue<? extends Diagnostic<JavaFileObject>> getDiagnosticQ() {
         return getDiagnostics();
     }
