@@ -1,8 +1,8 @@
 package wn.tragulus;
 
 import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.ListBuffer;
 
-import java.util.ArrayList;
 import java.util.Collection;
 
 
@@ -19,34 +19,63 @@ public class JCUtils {
 
 
     public static <T> List<T> set(List<T> list, int i, T val) {
-        java.util.List<T> tmp = new ArrayList<>(list);
-        tmp.set(i, val);
-        return List.from(tmp);
+        ListBuffer<T> buf = new ListBuffer<>();
+        for (T t : list) {
+            if (i-- == 0) {
+                buf.add(val);
+            } else {
+                buf.append(t);
+            }
+        }
+        if (i >= 0) {
+            throw new IndexOutOfBoundsException();
+        }
+        return buf.toList();
     }
 
 
     public static <T> List<T> append(List<T> list, Collection<? super T> val) {
-        java.util.List<T> tmp = new ArrayList<>(list.size() + val.size());
-        tmp.addAll(list);
+        ListBuffer<T> buf = new ListBuffer<>();
+        buf.appendList(list);
         //noinspection unchecked
-        tmp.addAll((Collection<? extends T>) val);
-        return List.from(tmp);
+        buf.addAll((Collection<? extends T>) val);
+        return buf.toList();
     }
 
 
     public static <S, T extends S> List<T> insert(List<T> list, int i, S val) {
-        java.util.List<T> tmp = new ArrayList<>(list);
-        //noinspection unchecked
-        tmp.add(i, (T) val);
-        return List.from(tmp);
+        ListBuffer<T> buf = new ListBuffer<>();
+        for (T t : list) {
+            if (i-- == 0) //noinspection unchecked
+                buf.add((T) val);
+            buf.append(t);
+        }
+        if (i == 0) {
+            //noinspection unchecked
+            buf.add((T) val);
+        } else
+        if (i > 0) {
+            throw new IndexOutOfBoundsException();
+        }
+        return buf.toList();
     }
 
 
     public static <T> List<T> insert(List<T> list, int i, Collection<? super T> val) {
-        java.util.List<T> tmp = new ArrayList<>(list);
-        //noinspection unchecked
-        tmp.addAll(i, (Collection<? extends T>) val);
-        return List.from(tmp);
+        ListBuffer<T> buf = new ListBuffer<>();
+        for (T t : list) {
+            if (i-- == 0) //noinspection unchecked
+                buf.addAll((Collection<? extends T>) val);
+            buf.append(t);
+        }
+        if (i == 0) {
+            //noinspection unchecked
+            buf.addAll((Collection<? extends T>) val);
+        } else
+        if (i > 0) {
+            throw new IndexOutOfBoundsException();
+        }
+        return buf.toList();
     }
 
 
