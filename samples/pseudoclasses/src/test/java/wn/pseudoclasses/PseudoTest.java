@@ -32,7 +32,7 @@ abstract class PseudoTest {
     }
 
 
-    private static File fileOf(String target) {
+    protected File fileOf(String target) {
         try {
             URL url = ClassLoader.getSystemResource(target + ".java");
             return new File(url.toURI());
@@ -42,25 +42,25 @@ abstract class PseudoTest {
     }
 
 
-    static boolean compile(Processor processor, String ... targets) throws Exception {
+    boolean compile(Processor processor, String ... targets) throws Exception {
         return compile(processor, new DiagnosticCollector<>(), targets);
     }
 
 
-    static boolean compile(Processor processor, DiagnosticCollector<JavaFileObject> diagnostics,
+    boolean compile(Processor processor, DiagnosticCollector<JavaFileObject> diagnostics,
                                    String ... targets) throws Exception {
-        List<File> javaFiles = Stream.of(targets).map(PseudoTest::fileOf).collect(Collectors.toList());
+        List<File> javaFiles = Stream.of(targets).map(this::fileOf).collect(Collectors.toList());
         File testDir = javaFiles.get(0).getParentFile().getParentFile();
         return JavacUtils.complile(javaFiles, new File(testDir, "tmp"), OPT_PROCESS_ERRORS, processor, diagnostics);
     }
 
 
-    static int run(String target) throws Exception {
+    int run(String target) throws Exception {
         return run(target, System.out);
     }
 
 
-    static int run(String target, OutputStream out) throws Exception {
+    int run(String target, OutputStream out) throws Exception {
         Runtime runtime = Runtime.getRuntime();
         File javaFile = fileOf(target);
         File testDir = javaFile.getParentFile().getParentFile();

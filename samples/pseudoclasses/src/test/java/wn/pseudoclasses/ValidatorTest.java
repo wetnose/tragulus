@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaFileObject;
+import java.io.File;
 
 /**
  * Alexander A. Solovioff
@@ -133,4 +134,10 @@ public class ValidatorTest extends PseudoTest {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    @Override
+    protected File fileOf(String target) {
+        return super.fileOf("validate/" + target);
+    }
 }

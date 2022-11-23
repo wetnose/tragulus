@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
@@ -20,5 +21,16 @@ public class InlinerTest extends PseudoTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         run("TypeCast", out);
         Assertions.assertEquals("15", out.toString(US_ASCII).trim());
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Supplementary classes & routines                                                                               //
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    @Override
+    protected File fileOf(String target) {
+        return super.fileOf("inline/" + target);
     }
 }
