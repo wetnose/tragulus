@@ -3,19 +3,20 @@ package wn.pseudoclasses;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+
 /**
  * Alexander A. Solovioff
  * Date: 27.11.2022
  * Time: 12:43 AM
  */
-public class ListTest {
+public class RingTest {
 
 
     @Test
     public void addRemove() {
-        Node a = new Node("a");
-        Node b = new Node("b");
-        Node c = new Node("c");
+        Entry a = new Entry("a");
+        Entry b = new Entry("b");
+        Entry c = new Entry("c");
         System.out.println(a);
         System.out.println(b);
         System.out.println(c);
@@ -47,10 +48,10 @@ public class ListTest {
 
     @Test
     public void concat() {
-        Node a = new Node("a");
-        Node b = new Node("b");
-        Node c = new Node("c");
-        Node d = new Node("d");
+        Entry a = new Entry("a");
+        Entry b = new Entry("b");
+        Entry c = new Entry("c");
+        Entry d = new Entry("d");
 
         a.add(b);
         c.add(d);
@@ -71,11 +72,11 @@ public class ListTest {
     // Supplementary classes & routines                                                                               //
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    static class Node extends List<Node> {
+    static class Entry extends Ring<Entry> {
 
         final String val;
 
-        Node(String val) {
+        Entry(String val) {
             this.val = val;
         }
 
@@ -84,17 +85,22 @@ public class ListTest {
             int count = 0;
             StringBuilder buf = new StringBuilder();
             buf.append(val);
-            Node n = next();
-            while (n != this) {
+            Entry e = next();
+            while (e != this) {
                 if (++count == 20) {
                     buf.append("...");
                     break;
                 }
                 buf.append(" ");
-                buf.append(n.val);
-                n = n.next();
+                e.appendTo(buf);
+                e = e.next();
             }
             return buf.toString();
+        }
+
+        @Override
+        protected void appendTo(StringBuilder buf) {
+            buf.append(val);
         }
     }
 }
