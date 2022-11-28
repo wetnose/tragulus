@@ -90,6 +90,8 @@ class Inliner {
                     .collect(Collectors.toMap(t -> t.elem.asType(), t -> (Extension) t));
         }
 
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Unit processing
 
         void process(CompilationUnitTree unit) {
 
@@ -119,6 +121,7 @@ class Inliner {
                     }
                     return null;
                 }
+
 
                 @Override
                 public Extract visitMethodInvocation(MethodInvocationTree node, Container container) {
@@ -170,12 +173,16 @@ class Inliner {
                             } else {
                                 expr = null;
                             }
-                            if (!(expr instanceof IdentifierTree)) {
-                                TypeMirror type = mthd.params[i].asType();
-                                asm.at(arg);
-                                if (expr == null) expr = asm.copyOf(arg);
-                                Name var = stmts.addDecl(type, names, "var", expr);
-                                args[i] = asm.identOf(var);
+                            if (!(expr instanceof IdentifierTree) && !(expr instanceof LiteralTree)) {
+                                if (arg instanceof LiteralTree) {
+                                    args[i] = arg;
+                                } else {
+                                    TypeMirror type = mthd.params[i].asType();
+                                    asm.at(arg);
+                                    if (expr == null) expr = asm.copyOf(arg);
+                                    Name var = stmts.addDecl(type, names, "var", expr);
+                                    args[i] = asm.identOf(var);
+                                }
                             } else {
                                 args[i] = expr;
                             }
@@ -192,6 +199,7 @@ class Inliner {
                     }
                 }
 
+
                 class MethodInjector {
 
                     final ExecutableElement elem;
@@ -204,27 +212,32 @@ class Inliner {
 
                     ExpressionTree inline(ExpressionTree self, ExpressionTree[] args, Statements stmts) {
                         assert args.length == params.length;
-                        final HashMap<Name,Name> repl = new HashMap<>();
+                        asm.reset();
+                        final HashMap<Name,Tree> repl = new HashMap<>();
                         for (int i=0, argCount=args.length; i < argCount; i++) {
                             VariableElement param = params[i];
                             Name name = param.getSimpleName();
                             ExpressionTree arg = args[i];
-                            repl.put(name, ((IdentifierTree) arg).getName());
+                            if (arg instanceof LiteralTree) {
+                                repl.put(name, arg);
+                            } else {
+                                repl.put(name, asm.identOf(((IdentifierTree) arg).getName()));
+                            }
                         }
                         Name label = names.generate(elem.getSimpleName());
                         Name var = elem.getReturnType() == pseudos.voidType ? null : names.generate("var");
                         BlockTree body = ((MethodTree) trees.getPath(elem).getLeaf()).getBody();
-                        body = asm.reset().copyOf(body, new Function<>() {
+                        body = asm.copyOf(body, new Function<>() {
                             @Override
                             public Tree apply(Tree t) {
                                 switch (t.getKind()) {
                                     case IDENTIFIER:
                                         Name n = ((IdentifierTree) t).getName();
-                                        Name r = repl.get(n);
+                                        Tree r = repl.get(n);
                                         if (r == null && names.contains(n)) {
-                                            r = names.generate(n);
+                                            repl.put(n, r = asm.identOf(names.generate(n)));
                                         }
-                                        if (r != null) return asm.identOf(r);
+                                        if (r != null) return r;
                                         break;
                                     case MEMBER_SELECT:
                                         if (JavacUtils.asElement(t) == wrapperValue) return asm.copyOf(self);
@@ -250,6 +263,7 @@ class Inliner {
                     }
                 }
 
+
                 @Override
                 public Extract visitVariable(VariableTree node, Container stmt) {
                     super.visitVariable(node, stmt);
@@ -261,6 +275,7 @@ class Inliner {
                     }
                     return null;
                 }
+
 
                 @Override
                 public Extract visitTypeCast(TypeCastTree node, Container stmt) {
@@ -284,6 +299,8 @@ class Inliner {
             System.out.println(unit);
             System.out.println(names);
         }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     }
 
 

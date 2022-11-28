@@ -29,7 +29,8 @@ public final class IntAnatomy0 extends Wrapper<int> {
 
     void setByte(int index, int value) {
         int shift = index << 3;
-        this.value = value & ~0xff << shift | (value & 0xff) << shift;
+        this.value &= ~(0xff << shift);
+        this.value |= (value & 0xff) << shift;
     }
 
 //    int sumBytes() {
