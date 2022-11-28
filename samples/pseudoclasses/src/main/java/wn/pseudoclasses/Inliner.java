@@ -182,7 +182,7 @@ class Inliner {
                         }
                         ExpressionTree ret;
                         if (mthd != null) {
-                            ret = mthd.inject(((MemberSelectTree) asm.get(A)).getExpression(), args, stmts);
+                            ret = mthd.inline(((MemberSelectTree) asm.get(A)).getExpression(), args, stmts);
                         } else {
                             ret = asm.at(node).invoke(A, asm.copyOf(typeArgs), Arrays.asList(args)).get(A);
                         }
@@ -202,7 +202,7 @@ class Inliner {
                         this.params = elem.getParameters().toArray(new VariableElement[0]);
                     }
 
-                    ExpressionTree inject(ExpressionTree self, ExpressionTree[] args, Statements stmts) {
+                    ExpressionTree inline(ExpressionTree self, ExpressionTree[] args, Statements stmts) {
                         assert args.length == params.length;
                         final HashMap<Name,Name> repl = new HashMap<>();
                         for (int i=0, argCount=args.length; i < argCount; i++) {
@@ -232,11 +232,13 @@ class Inliner {
                                     case RETURN:
                                         ReturnTree ret = (ReturnTree) t;
                                         ExpressionTree expr = asm.copyOf(ret.getExpression(), this);
-                                        if (var == null && expr != null) {
+                                        if (var != null && expr != null) {
                                             Statements s = new Statements(2);
                                             s.addAssign(var, expr);
                                             s.add(asm.brk(label).get());
                                             return asm.block(s).get();
+                                        } else {
+                                            return asm.brk(label).get();
                                         }
                                 }
                                 return null;
@@ -387,26 +389,6 @@ class Inliner {
 //    }
 
 
-//    static class Invocation extends Ring<Invocation> {
-//
-//        final Container container; //todo is it actually required?
-//        final MethodInvocationTree expr;
-//        final Extension ext;
-//
-//        Invocation(Container container, MethodInvocationTree expr, Extension ext) {
-//            assert container != null;
-//            this.container = container;
-//            this.expr = expr;
-//            this.ext = ext;
-//        }
-//
-//        @Override
-//        protected void appendTo(StringBuilder buf) {
-//            buf.append(expr);
-//        }
-//    }
-
-
     class Statements extends ArrayList<StatementTree> {
 
         Statements() {
@@ -428,7 +410,7 @@ class Inliner {
         }
 
         void addAssign(Name var, ExpressionTree expr) {
-            add(asm.ident(V, var).assign(V, expr).get(V));
+            add(asm.ident(V, var).assign(V, expr).asStat(V));
         }
     }
 
@@ -492,26 +474,5 @@ class Inliner {
 
 
     static class Container {
-
-//        final TreePath path;
-//
-//        Invocation invocations;
-//
-//        Container(TreePath path) {
-//            this.path = path;
-//        }
-//
-//        void add(Invocation inv) {
-//            Invocation ring = invocations;
-//            if (ring == null) {
-//                invocations = inv;
-//            } else {
-//                ring.add(inv);
-//            }
-//        }
-//
-//        void next() {
-//            invocations = invocations.next();
-//        }
     }
 }
