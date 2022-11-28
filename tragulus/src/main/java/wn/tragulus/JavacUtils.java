@@ -391,4 +391,21 @@ public class JavacUtils {
         return ((JCModifiers) tree.getModifiers()).flags;
 
     }
+
+    // 14.8. Expression Statements
+    public static boolean isStatementExpression(ExpressionTree tree) {
+        //return TreeInfo.isExpressionStatement((JCExpression) tree);
+        switch (tree.getKind()) {
+            case ASSIGNMENT:
+            case PREFIX_INCREMENT:
+            case PREFIX_DECREMENT:
+            case POSTFIX_INCREMENT:
+            case POSTFIX_DECREMENT:
+            case METHOD_INVOCATION:
+            case NEW_CLASS:
+                return true;
+            default:
+                return false;
+        }
+    }
 }

@@ -33,8 +33,6 @@ import java.util.stream.Collectors;
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class Processor extends BasicProcessor {
 
-    final Inliner inliner = new Inliner();
-
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment env) {
 
@@ -92,7 +90,8 @@ public class Processor extends BasicProcessor {
         }
 
         if (valid && helper.noErrorReports()) {
-            pseudotypes.forEach(inliner::inline);
+            final Inliner inliner = new Inliner(pseudos);
+            inliner.inline(pseudotypes);
         }
 
         pseudotypes.forEach(type -> {

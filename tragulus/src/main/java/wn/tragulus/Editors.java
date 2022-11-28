@@ -180,7 +180,7 @@ public class Editors {
         ((JCMethodDecl) node).defaultValue = (JCExpression) defaultValue;
     }
 
-    public static void setMethodSelect(MethodTree node, ExpressionTree methodSelect) {
+    public static void setMethodSelect(MethodInvocationTree node, ExpressionTree methodSelect) {
         ((JCMethodInvocation) node).meth = (JCExpression) methodSelect;
     }
 

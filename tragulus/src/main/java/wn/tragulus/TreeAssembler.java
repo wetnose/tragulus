@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static wn.tragulus.JCUtils.toJCList;
@@ -35,7 +36,7 @@ public class TreeAssembler {
     public static final int NA = -1;
 
     private final com.sun.tools.javac.tree.TreeMaker M;
-    private final com.sun.tools.javac.tree.TreeCopier C;
+    private final com.sun.tools.javac.tree.TreeCopier<?> C;
     private final Names N;
 
     private Object[] mem;
@@ -218,22 +219,39 @@ public class TreeAssembler {
 
 
     public TreeAssembler cpy(int src, int dst) {
-        Object v = mem[src];
-        if (v == null) {
-            mem[dst] = null;
-        } else
+        mem[dst] = copyOf(mem[src]);
+        return this;
+    }
+
+
+    public <T> T copyOf(T v) {
+        if (v == null) return null;
         if (v instanceof Collection) {
             //noinspection unchecked
-            Collection<JCTree> sc = (Collection<JCTree>) v; 
-            v = sc.stream().map(C::copy).collect(Collectors.toCollection(() -> new ArrayList<>(sc.size())));
-            mem[dst] = v;
-        } else
-        if (v instanceof JCTree) {
-            mem[dst] = C.copy((JCTree) v);
-        } else {
-            mem[dst] = v;
+            Collection<JCTree> sc = (Collection<JCTree>) v;
+            //noinspection unchecked
+            return (T) sc.stream().map(C::copy).collect(Collectors.toCollection(() -> new ArrayList<>(sc.size())));
         }
-        return this;
+        if (v instanceof JCTree) {
+            //noinspection unchecked
+            return (T) C.copy((JCTree) v);
+        } else {
+            return v;
+        }
+    }
+
+
+    public <T extends Tree> T copyOf(T tree, Function<Tree,Tree> hook) {
+        if (tree == null) return null;
+        //noinspection unchecked
+        return (T) new TreeCopier<Void>(M) {
+            @Override
+            public <X extends JCTree> X copy(X tree, Void unused) {
+                //noinspection unchecked
+                X cpy = (X) hook.apply(tree);
+                return cpy != null ? cpy : super.copy(tree, unused);
+            }
+        }.copy((JCTree) tree);
     }
 
 
@@ -453,7 +471,7 @@ public class TreeAssembler {
 
 
     public TreeAssembler invoke(Iterable<? extends Tree> typeArgs, Iterable<? extends ExpressionTree> args) {
-        return invoke(typeArgs, args);
+        return invoke(0, typeArgs, args);
     }
 
 
@@ -588,6 +606,11 @@ public class TreeAssembler {
     public TreeAssembler ident(int reg, TypeMirror type) {
         ident(reg, ((DeclaredType) type).asElement());
         return this;
+    }
+
+
+    public IdentifierTree identOf(javax.lang.model.element.Name name) {
+        return M.Ident((Name) name);
     }
 
 
@@ -791,6 +814,29 @@ public class TreeAssembler {
     }
 
 
+    public TreeAssembler brk(javax.lang.model.element.Name label) {
+        return brk(0, label);
+    }
+
+
+    public TreeAssembler brk(int reg, javax.lang.model.element.Name label) {
+        set(reg, M.Break((Name) label));
+        return this;
+    }
+
+
+    public TreeAssembler labeled(javax.lang.model.element.Name label) {
+        return labeled(0, label);
+    }
+
+
+    public TreeAssembler labeled(int reg, javax.lang.model.element.Name label) {
+        JCStatement stmt = get(reg, JCStatement.class);
+        set(reg, M.Labelled((Name) label, stmt));
+        return this;
+    }
+
+
     public TreeAssembler expr(UnsafeTreeMaker maker) {
         return expr(0, maker);
     }
@@ -810,6 +856,11 @@ public class TreeAssembler {
     public TreeAssembler stat(int reg, UnsafeTreeMaker maker) {
         set(reg, maker.make(M, N, this));
         return this;
+    }
+
+
+    public Name toName(String s) {
+        return N.fromString(s);
     }
 
 
