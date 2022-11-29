@@ -26,6 +26,10 @@ public class Editors {
         ((JCTree) node).pos = pos;
     }
 
+    public static void setPos(Tree node, Tree pos) {
+        setPos(node, ((JCTree) pos).pos);
+    }
+
     public static void setLabel(BreakTree node, Name label) {
         ((JCBreak) node).label = (com.sun.tools.javac.util.Name) label;
     }

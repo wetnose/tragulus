@@ -273,7 +273,18 @@ public class TreeAssembler {
 
     public TreeAssembler at(Tree tree) {
         if (tree != null)
-            M.pos = ((JCTree) tree).pos;
+            M.at(((JCTree) tree).pos);
+        return this;
+    }
+
+
+    public TreeAssembler pos() {
+        return pos(0);
+    }
+
+
+    public TreeAssembler pos(int reg) {
+        ((JCTree) mem[reg]).pos = M.pos;
         return this;
     }
 
@@ -298,6 +309,17 @@ public class TreeAssembler {
             list.add(v);
             mem[reg] = list;
         }
+        return this;
+    }
+
+
+    public TreeAssembler empty() {
+        return empty(0);
+    }
+
+
+    public TreeAssembler empty(int reg) {
+        set(reg, M.Skip());
         return this;
     }
 
@@ -836,7 +858,7 @@ public class TreeAssembler {
 
 
     public TreeAssembler bin(Tree.Kind op, int lhsReg, int rhsReg) {
-        return and(lhsReg, get(rhsReg, JCExpression.class));
+        return bin(op, lhsReg, get(rhsReg, JCExpression.class));
     }
 
 
@@ -845,6 +867,28 @@ public class TreeAssembler {
         JCExpression lhs = get(lhsReg, JCExpression.class);
         Tag tag = JavacUtils.kindToTag(op);
         set(lhsReg, M.Binary(tag, lhs, (JCExpression) rhs));
+        return this;
+    }
+
+
+    public TreeAssembler par() {
+        return par(0);
+    }
+
+
+    public TreeAssembler par(int reg) {
+        par(reg, (ExpressionTree) mem[reg]);
+        return this;
+    }
+
+
+    public TreeAssembler par(ExpressionTree expr) {
+        return par(0, expr);
+    }
+
+
+    public TreeAssembler par(int reg, ExpressionTree expr) {
+        set(reg, M.Parens((JCExpression) expr));
         return this;
     }
 

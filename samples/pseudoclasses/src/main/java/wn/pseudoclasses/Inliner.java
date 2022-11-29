@@ -10,6 +10,7 @@ import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
 import wn.tragulus.ProcessingHelper;
 import wn.tragulus.TreeAssembler;
+import wn.tragulus.TreeAssembler.Copier;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -188,7 +189,7 @@ class Inliner {
                         }
                         ExpressionTree ret;
                         if (mthd != null) {
-                            ret = mthd.inline(((MemberSelectTree) asm.get(A)).getExpression(), args, stmts);
+                            ret = mthd.inline(node, ((MemberSelectTree) asm.get(A)).getExpression(), args, stmts);
                         } else {
                             ret = asm.at(node).invoke(A, asm.copyOf(typeArgs), Arrays.asList(args)).get(A);
                         }
@@ -209,9 +210,8 @@ class Inliner {
                         this.params = elem.getParameters().toArray(new VariableElement[0]);
                     }
 
-                    ExpressionTree inline(ExpressionTree self, ExpressionTree[] args, Statements stmts) {
+                    ExpressionTree inline(Tree pos, ExpressionTree self, ExpressionTree[] args, Statements stmts) {
                         assert args.length == params.length;
-                        asm.reset();
                         final HashMap<Name,Tree> repl = new HashMap<>();
                         for (int i=0, argCount=args.length; i < argCount; i++) {
                             VariableElement param = params[i];
@@ -226,42 +226,69 @@ class Inliner {
                         Name label = names.generate(elem.getSimpleName());
                         Name var = elem.getReturnType() == pseudos.voidType ? null : names.generate("var");
                         BlockTree body = ((MethodTree) trees.getPath(elem).getLeaf()).getBody();
-                        body = asm.copyOf(body, (t, copier) -> {
-                            switch (t.getKind()) {
-                                case VARIABLE: {
-                                    Name n = ((VariableTree) t).getName();
-                                    Name r = names.generate(n);
-                                    repl.put(n, asm.identOf(r));
-                                    t = copier.copy(t);
-                                    Editors.setName((VariableTree) t, r);
-                                    break;
-                                }
-                                case IDENTIFIER: {
-                                    return asm.copyOf(repl.get(((IdentifierTree) t).getName()));
-                                }
-                                case MEMBER_SELECT: {
-                                    if (JavacUtils.asElement(t) == wrapperValue) return asm.copyOf(self);
-                                    t = copier.copy(t);
-                                    break;
-                                }
-                                case RETURN: {
-                                    ReturnTree ret = (ReturnTree) t;
-                                    ExpressionTree expr = copier.copy(ret.getExpression());
-                                    if (var != null && expr != null) {
-                                        Statements s = new Statements(2);
-                                        s.addAssign(var, expr);
-                                        s.add(asm.brk(label).get());
-                                        return asm.block(s).get();
-                                    } else {
-                                        return asm.brk(label).get();
+                        body = asm.reset().copyOf(body, new BiFunction<>() {
+                            @Override
+                            public Tree apply(Tree t, Copier copier) {
+                                Tree.Kind kind = t.getKind();
+                                switch (t.getKind()) {
+                                    case VARIABLE: {
+                                        VariableTree v = (VariableTree) t;
+                                        Name n = v.getName();
+                                        v = copier.copy(v);
+                                        ExpressionTree init = v.getInitializer();
+                                        if (init instanceof LiteralTree || init instanceof IdentifierTree) {
+                                            repl.put(n, init);
+                                            return asm.empty().get();
+                                        } else {
+                                            Name r = names.generate(n);
+                                            repl.put(n, asm.identOf(r));
+                                            Editors.setName(v, r);
+                                            return v;
+                                        }
                                     }
+                                    case IDENTIFIER: {
+                                        return asm.copyOf(repl.get(((IdentifierTree) t).getName()));
+                                    }
+                                    case MEMBER_SELECT: {
+                                        if (JavacUtils.asElement(t) == wrapperValue) return asm.copyOf(self);
+                                        return copier.copy(t);
+                                    }
+                                    case RETURN: {
+                                        ReturnTree ret = (ReturnTree) t;
+                                        ExpressionTree expr = copier.copy(ret.getExpression());
+                                        if (var != null && expr != null) {
+                                            Statements s = new Statements(2);
+                                            s.addAssign(var, expr);
+                                            s.add(asm.brk(label).get());
+                                            return asm.block(s).get();
+                                        } else {
+                                            return asm.brk(label).get();
+                                        }
+                                    }
+                                    case PARENTHESIZED:
+                                        Tree e = this.apply(((ParenthesizedTree) t).getExpression(), copier);
+                                        if (e instanceof LiteralTree || e instanceof IdentifierTree) {
+                                            return e;
+                                        }
+                                        return asm.par((ExpressionTree) e).get();
+                                    default:
+                                        if (t instanceof BinaryTree) {
+                                            BinaryTree b = (BinaryTree) t;
+                                            ExpressionTree l = (ExpressionTree) this.apply(b.getLeftOperand(), copier);
+                                            ExpressionTree r = (ExpressionTree) this.apply(b.getRightOperand(), copier);
+                                            if (l instanceof LiteralTree && r instanceof LiteralTree) {
+                                                Object res = Expressions.eval(
+                                                        kind, ((LiteralTree) l).getValue(), ((LiteralTree) r).getValue());
+                                                if (res != null) return asm.literal(res).get();
+                                            }
+                                            return asm.set(A, l).bin(kind, A, r).get(A);
+                                        } else {
+                                            return copier.copy(t);
+                                        }
                                 }
-                                default:
-                                    t = copier.copy(t);
                             }
-                            Editors.setPos(t, -1);
-                            return t;
                         });
+                        JavacUtils.scan(body, t -> Editors.setPos(t, pos));
                         if (var != null) stmts.addDecl(elem.getReturnType(), var, null);
                         stmts.add(asm.set(body).labeled(label).get());
                         return var == null ? null : asm.identOf(var);
@@ -354,7 +381,8 @@ class Inliner {
                     Extract extr = scan(node.getExpression(), null);
                     if (extr != null) return extr;
                     ExpressionTree expr = node.getExpression();
-                    if (expr instanceof LiteralTree) Editors.replaceTree(getCurrentPath(), expr);
+                    if (expr instanceof LiteralTree || expr instanceof IdentifierTree)
+                        Editors.replaceTree(getCurrentPath(), expr);
                     return null;
                 }
 
