@@ -790,6 +790,18 @@ public class TreeAssembler {
     }
 
 
+    public TreeAssembler not() {
+        return not(0);
+    }
+
+
+    public TreeAssembler not(int reg) {
+        JCExpression expr = get(reg, JCExpression.class);
+        set(reg, M.Unary(Tag.NOT, expr));
+        return this;
+    }
+
+
     public TreeAssembler ne(int lhsReg, int rhsReg) {
         return ne(lhsReg, get(rhsReg, JCExpression.class));
     }
@@ -810,6 +822,20 @@ public class TreeAssembler {
     public TreeAssembler and(int lhsReg, ExpressionTree rhs) {
         JCExpression lhs = get(lhsReg, JCExpression.class);
         set(lhsReg, M.Binary(Tag.AND, lhs, (JCExpression) rhs));
+        return this;
+    }
+
+
+    public TreeAssembler bin(Tree.Kind op, int lhsReg, int rhsReg) {
+        return and(lhsReg, get(rhsReg, JCExpression.class));
+    }
+
+
+    public TreeAssembler bin(Tree.Kind op, int lhsReg, ExpressionTree rhs) {
+        if (op.asInterface() != BinaryTree.class) throw new IllegalArgumentException();
+        JCExpression lhs = get(lhsReg, JCExpression.class);
+        Tag tag = JavacUtils.kindToTag(op);
+        set(lhsReg, M.Binary(tag, lhs, (JCExpression) rhs));
         return this;
     }
 

@@ -63,6 +63,7 @@ class Pseudos {
     final Elements         elements;
 
     final TypeMirror voidType;
+    final TypeMirror booleanType;
     final TypeMirror objectType;
     final TypeMirror wrapperType;
     final TypeMirror pseudoType;
@@ -76,6 +77,7 @@ class Pseudos {
         this.elements = helper.getElementUtils();
 
         voidType      = helper.asType(void.class);
+        booleanType   = helper.asType(boolean.class);
         objectType    = helper.asType(Object.class);
         wrapperType   = helper.asType(wn.pseudoclasses.Wrapper.class);
         pseudoType    = helper.asType(wn.pseudoclasses.Pseudo.class);

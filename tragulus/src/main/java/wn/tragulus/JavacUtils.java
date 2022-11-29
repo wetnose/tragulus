@@ -9,6 +9,7 @@ import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCModifiers;
+import com.sun.tools.javac.tree.JCTree.Tag;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.JCDiagnostic;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
@@ -407,5 +408,35 @@ public class JavacUtils {
             default:
                 return false;
         }
+    }
+
+
+    static Tag kindToTag(Tree.Kind kind) {
+        if (kind == null) return null;
+        switch (kind) {
+
+            // Binary operators
+
+            case MULTIPLY             : return Tag.MUL;    // *
+            case DIVIDE               : return Tag.DIV;    // /
+            case REMAINDER            : return Tag.MOD;    // %
+            case PLUS                 : return Tag.PLUS;   // +
+            case MINUS                : return Tag.MINUS;  // -
+            case LEFT_SHIFT           : return Tag.SL;     // <<
+            case RIGHT_SHIFT          : return Tag.SR;     // >>
+            case UNSIGNED_RIGHT_SHIFT : return Tag.USR;    // >>>
+            case LESS_THAN            : return Tag.LT;     // <
+            case GREATER_THAN         : return Tag.GT;     // >
+            case LESS_THAN_EQUAL      : return Tag.LE;     // <=
+            case GREATER_THAN_EQUAL   : return Tag.GE;     // >=
+            case EQUAL_TO             : return Tag.EQ;     // ==
+            case NOT_EQUAL_TO         : return Tag.NE;     // !=
+            case AND                  : return Tag.BITAND; // &
+            case XOR                  : return Tag.BITXOR; // ^
+            case OR                   : return Tag.BITOR;  // |
+            case CONDITIONAL_AND      : return Tag.AND;    // &&
+            case CONDITIONAL_OR       : return Tag.OR;     // ||
+        }
+        throw new IllegalArgumentException();
     }
 }

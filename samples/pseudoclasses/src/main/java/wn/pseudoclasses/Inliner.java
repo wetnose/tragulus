@@ -135,8 +135,7 @@ class Inliner {
                     }
                     List<? extends Tree> typeArgs = node.getTypeArguments();
                     //todo scan(typeArgs, null);
-                    ExpressionTree sel = node.getMethodSelect();
-                    Extract selExtr = scan(sel, null);
+                    Extract selExtr = scan(node.getMethodSelect(), null);
                     ExpressionTree[] args = node.getArguments().toArray(new ExpressionTree[0]);
                     int argCount = args.length, extrCount = 0;
                     Extract[] argExtr = new Extract[argCount];
@@ -148,14 +147,14 @@ class Inliner {
                             argExtr[i] = extr;
                         }
                     }
+                    args = node.getArguments().toArray(new ExpressionTree[0]); // could be evaluated
                     if (selExtr != null || extrCount != 0 || ext != null) {
-                        //TreeAssembler asm = Inliner.this.asm;
                         Statements stmts = new Statements();
                         if (selExtr != null) {
                             stmts.addAll(selExtr.stmts);
                             asm.set(A, selExtr.expr);
                         } else {
-                            asm.set(A, sel);
+                            asm.set(A, node.getMethodSelect());
                         }
                         MethodInjector mthd = extrCount == 0 && ext == null ? null : new MethodInjector(elem);
                         for (int i=0; i < argCount; i++) {
@@ -274,6 +273,73 @@ class Inliner {
                         Editors.setType(node, asm.at(type).type(ext.wrappedType).asExpr());
                     }
                     return null;
+                }
+
+
+                private BinaryTree bin(Tree.Kind kind, ExpressionTree left, ExpressionTree right) {
+                    return asm.set(V, left).bin(kind, V, asm.copyOf(right)).get(V);
+                }
+
+                @Override
+                public Extract visitBinary(BinaryTree node, Container unused) {
+                    asm.at(node);
+                    Tree.Kind kind = node.getKind();
+                    Extract lExtr = scan(node.getLeftOperand(), null);
+                    Extract rExtr = scan(node.getRightOperand(), null);
+                    if (lExtr == null && rExtr == null) {
+                        ExpressionTree left = node.getLeftOperand();
+                        ExpressionTree right = node.getRightOperand();
+                        if (left instanceof LiteralTree && right instanceof LiteralTree) {
+                            Object res = Evaluator.eval(
+                                    kind, ((LiteralTree) left).getValue(), ((LiteralTree) right).getValue());
+                            if (res != null) {
+                                Editors.replaceTree(getCurrentPath(), asm.literal(res).get());
+                            }
+                        }
+                        return null;
+                    }
+                    if (lExtr != null) {
+                        ExpressionTree right = node.getRightOperand();
+                        if (rExtr == null) return new Extract(bin(kind, lExtr.expr, right), lExtr.stmts);
+                        Statements stmts = lExtr.stmts;
+                        switch (kind) {
+                            case CONDITIONAL_AND:
+                            case CONDITIONAL_OR:
+                                Name var;
+                                if (lExtr.expr instanceof IdentifierTree) {
+                                    var = ((IdentifierTree) lExtr.expr).getName();
+                                } else {
+                                    var = stmts.addDecl(pseudos.booleanType, names, "var", lExtr.expr);
+                                }
+                                Statements b = rExtr.stmts;
+                                b.addAssign(var, rExtr.expr);
+                                asm.set(A, asm.identOf(var));
+                                if (kind == Tree.Kind.CONDITIONAL_OR) asm.not(A);
+                                stmts.add(asm.block(B, b).ifThen(A, B).get(A));
+                                return new Extract(var, stmts);
+                            default:
+                                stmts.addAll(rExtr.stmts);
+                                return new Extract(bin(kind, lExtr.expr, rExtr.expr), stmts);
+                        }
+                    } else {
+                        ExpressionTree left = node.getLeftOperand();
+                        TypeMirror type = trees.getTypeMirror(getCurrentPath());
+                        Statements stmts = new Statements();
+                        Name var = stmts.addDecl(type, names, "var", left);
+                        switch (kind) {
+                            case CONDITIONAL_AND:
+                            case CONDITIONAL_OR:
+                                Statements b = rExtr.stmts;
+                                b.addAssign(var, rExtr.expr);
+                                asm.set(A, asm.identOf(var));
+                                if (kind == Tree.Kind.CONDITIONAL_OR) asm.not(A);
+                                stmts.add(asm.block(B, b).ifThen(A, B).get(A));
+                                return new Extract(var, stmts);
+                            default:
+                                stmts.addAll(rExtr.stmts);
+                                return new Extract(bin(kind, asm.identOf(var), rExtr.expr), stmts);
+                        }
+                    }
                 }
 
 
@@ -432,13 +498,18 @@ class Inliner {
     }
 
 
-    static class Extract extends Ring<Extract> {
+    class Extract extends Ring<Extract> {
 
         final ExpressionTree expr;
         final Statements stmts;
 
         Extract(ExpressionTree expr, Statements stmts) {
             this.expr = expr;
+            this.stmts = stmts;
+        }
+
+        Extract(Name var, Statements stmts) {
+            this.expr = asm.identOf(var);
             this.stmts = stmts;
         }
 
