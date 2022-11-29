@@ -102,6 +102,13 @@ class Inliner {
             new TreePathScanner<Extract, Void>() {
 
                 @Override
+                public Extract reduce(Extract r1, Extract r2) {
+                    if (r1 != null || r2 != null) throw new AssertionError();
+                    return null;
+                }
+
+
+                @Override
                 public Extract visitExpressionStatement(ExpressionStatementTree node, Void unused) {
                     Extract extr = scan(node.getExpression(), null);
                     if (extr == null) return null;
@@ -226,7 +233,7 @@ class Inliner {
                         Name label = names.generate(elem.getSimpleName());
                         Name var = elem.getReturnType() == pseudos.voidType ? null : names.generate("var");
                         BlockTree body = ((MethodTree) trees.getPath(elem).getLeaf()).getBody();
-                        body = asm.reset().copyOf(body, new BiFunction<>() {
+                        body = asm.reset().copyOf(body, new BiFunction<Tree,Copier,Tree>() {
                             @Override
                             public Tree apply(Tree t, Copier copier) {
                                 Tree.Kind kind = t.getKind();
@@ -266,16 +273,25 @@ class Inliner {
                                         }
                                     }
                                     case PARENTHESIZED:
-                                        Tree e = this.apply(((ParenthesizedTree) t).getExpression(), copier);
+                                        ExpressionTree e = copy(((ParenthesizedTree) t).getExpression(), copier);
                                         if (e instanceof LiteralTree || e instanceof IdentifierTree) {
                                             return e;
                                         }
-                                        return asm.par((ExpressionTree) e).get();
+                                        return asm.par(e).get();
                                     default:
+                                        if (t instanceof UnaryTree) {
+                                            UnaryTree u = (UnaryTree) t;
+                                            ExpressionTree a = copy(u.getExpression(), copier);
+                                            if (a instanceof LiteralTree) {
+                                                Object res = Expressions.eval(kind, ((LiteralTree) a).getValue());
+                                                if (res != null) return asm.literal(res).get();
+                                            }
+                                            return asm.uno(kind, A, a).get(A);
+                                        } else
                                         if (t instanceof BinaryTree) {
                                             BinaryTree b = (BinaryTree) t;
-                                            ExpressionTree l = (ExpressionTree) this.apply(b.getLeftOperand(), copier);
-                                            ExpressionTree r = (ExpressionTree) this.apply(b.getRightOperand(), copier);
+                                            ExpressionTree l = copy(b.getLeftOperand(), copier);
+                                            ExpressionTree r = copy(b.getRightOperand(), copier);
                                             if (l instanceof LiteralTree && r instanceof LiteralTree) {
                                                 Object res = Expressions.eval(
                                                         kind, ((LiteralTree) l).getValue(), ((LiteralTree) r).getValue());
@@ -286,6 +302,10 @@ class Inliner {
                                             return copier.copy(t);
                                         }
                                 }
+                            }
+                            <T extends Tree> T copy(T t, Copier copier) {
+                                //noinspection unchecked
+                                return (T) apply(t, copier);
                             }
                         });
                         JavacUtils.scan(body, t -> Editors.setPos(t, pos));
@@ -306,6 +326,30 @@ class Inliner {
                         Editors.setType(node, asm.at(type).type(ext.wrappedType).asExpr());
                     }
                     return null;
+                }
+
+
+                private BinaryTree uno(Tree.Kind kind, ExpressionTree arg) {
+                    return asm.uno(kind, V, asm.copyOf(arg)).get(V);
+                }
+
+                @Override
+                public Extract visitUnary(UnaryTree node, Void unused) {
+                    asm.at(node);
+                    Tree.Kind kind = node.getKind();
+                    Extract extr = scan(node.getExpression(), null);
+                    if (extr == null) {
+                        ExpressionTree arg = node.getExpression();
+                        if (arg instanceof LiteralTree) {
+                            Object res = Expressions.eval(kind, ((LiteralTree) arg).getValue());
+                            if (res != null) {
+                                Editors.replaceTree(getCurrentPath(), asm.literal(res).get());
+                            }
+                        }
+                        return null;
+                    } else {
+                        return new Extract(uno(kind, extr.expr), extr.stmts);
+                    }
                 }
 
 

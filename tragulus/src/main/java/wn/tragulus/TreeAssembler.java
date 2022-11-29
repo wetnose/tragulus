@@ -284,7 +284,7 @@ public class TreeAssembler {
 
 
     public TreeAssembler pos(int reg) {
-        ((JCTree) mem[reg]).pos = M.pos;
+        get(reg, JCTree.class).pos = M.pos;
         return this;
     }
 
@@ -857,6 +857,24 @@ public class TreeAssembler {
     }
 
 
+    public TreeAssembler uno(Tree.Kind op) {
+        return uno(op, 0);
+    }
+
+
+    public TreeAssembler uno(Tree.Kind op, int reg) {
+        return uno(op, reg, get(reg, ExpressionTree.class));
+    }
+
+
+    public TreeAssembler uno(Tree.Kind op, int reg, ExpressionTree expr) {
+        if (op.asInterface() != UnaryTree.class) throw new IllegalArgumentException();
+        Tag tag = JavacUtils.kindToTag(op);
+        set(reg, M.Unary(tag, (JCExpression) expr));
+        return this;
+    }
+
+
     public TreeAssembler bin(Tree.Kind op, int lhsReg, int rhsReg) {
         return bin(op, lhsReg, get(rhsReg, JCExpression.class));
     }
@@ -877,7 +895,7 @@ public class TreeAssembler {
 
 
     public TreeAssembler par(int reg) {
-        par(reg, (ExpressionTree) mem[reg]);
+        par(reg, get(reg, ExpressionTree.class));
         return this;
     }
 

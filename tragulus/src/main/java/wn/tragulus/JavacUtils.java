@@ -415,6 +415,15 @@ public class JavacUtils {
         if (kind == null) return null;
         switch (kind) {
 
+            // Unary operators
+
+            case PREFIX_INCREMENT     : return Tag.PREINC; // ++ _
+            case PREFIX_DECREMENT     : return Tag.PREDEC; // -- _
+            case UNARY_PLUS           : return Tag.POS;    // +
+            case UNARY_MINUS          : return Tag.NEG;    // -
+            case BITWISE_COMPLEMENT   : return Tag.COMPL ; // ~
+            case LOGICAL_COMPLEMENT   : return Tag.NOT;    // !
+
             // Binary operators
 
             case MULTIPLY             : return Tag.MUL;    // *

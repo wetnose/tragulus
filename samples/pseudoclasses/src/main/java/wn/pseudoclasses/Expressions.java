@@ -18,6 +18,10 @@ class Expressions {
     enum Type {
         BOOLEAN {
             @Override
+            Object evalPromoted(Tree.Kind op, Object arg) {
+                return Type.evalBool(op, (boolean) arg);
+            }
+            @Override
             public Object evalPromoted(Tree.Kind op, Object lhs, Object rhs) {
                 switch (Type.of(rhs)) {
                     case BOOLEAN:
@@ -29,6 +33,10 @@ class Expressions {
         },
 
         INT {
+            @Override
+            Object evalPromoted(Tree.Kind op, Object arg) {
+                return Type.evalInt(op, (int) arg);
+            }
             @Override
             public Object evalPromoted(Tree.Kind op, Object lhs, Object rhs) {
                 switch (Type.of(rhs)) {
@@ -49,6 +57,10 @@ class Expressions {
 
         LONG {
             @Override
+            Object evalPromoted(Tree.Kind op, Object arg) {
+                return Type.evalLong(op, (long) arg);
+            }
+            @Override
             public Object evalPromoted(Tree.Kind op, Object lhs, Object rhs) {
                 switch (Type.of(rhs)) {
                     case INT:
@@ -61,6 +73,10 @@ class Expressions {
         },
 
         FLOAT {
+            @Override
+            Object evalPromoted(Tree.Kind op, Object arg) {
+                return Type.evalFloat(op, (float) arg);
+            }
             @Override
             Object evalPromoted(Tree.Kind op, Object lhs, Object rhs) {
                 switch (Type.of(rhs)) {
@@ -78,6 +94,10 @@ class Expressions {
 
         DOUBLE  {
             @Override
+            Object evalPromoted(Tree.Kind op, Object arg) {
+                return Type.evalDouble(op, (double) arg);
+            }
+            @Override
             Object evalPromoted(Tree.Kind op, Object lhs, Object rhs) {
                 switch (Type.of(rhs)) {
                     case INT:
@@ -92,6 +112,10 @@ class Expressions {
         },
 
         OTHER  {
+            @Override
+            Object evalPromoted(Tree.Kind op, Object arg) {
+                return null;
+            }
             @Override
             Object evalPromoted(Tree.Kind op, Object lhs, Object rhs) {
                 return null;
@@ -123,7 +147,16 @@ class Expressions {
         }
 
 
+        abstract Object evalPromoted(Tree.Kind op, Object arg);
         abstract Object evalPromoted(Tree.Kind op, Object lhs, Object rhs);
+
+
+        private static Object evalBool(Tree.Kind op, boolean a) {
+            switch (op) {
+                case LOGICAL_COMPLEMENT   : return !a;
+            }
+            return null;
+        }
 
 
         private static Object evalBool(Tree.Kind op, boolean l, boolean r) {
@@ -135,6 +168,18 @@ class Expressions {
                 case OR                   : return l | r;
                 case CONDITIONAL_AND      : return l && r;
                 case CONDITIONAL_OR       : return l || r;
+            }
+            return null;
+        }
+
+
+        private static Object evalInt(Tree.Kind op, int a) {
+            switch (op) {
+                case PREFIX_INCREMENT     : return a + 1;
+                case PREFIX_DECREMENT     : return a - 1;
+                case UNARY_PLUS           : return +a;
+                case UNARY_MINUS          : return -a;
+                case BITWISE_COMPLEMENT   : return ~a;
             }
             return null;
         }
@@ -159,6 +204,18 @@ class Expressions {
                 case AND                  : return l & r;
                 case XOR                  : return l ^ r;
                 case OR                   : return l | r;
+            }
+            return null;
+        }
+
+
+        private static Object evalLong(Tree.Kind op, long a) {
+            switch (op) {
+                case PREFIX_INCREMENT     : return a + 1;
+                case PREFIX_DECREMENT     : return a - 1;
+                case UNARY_PLUS           : return +a;
+                case UNARY_MINUS          : return -a;
+                case BITWISE_COMPLEMENT   : return ~a;
             }
             return null;
         }
@@ -198,6 +255,17 @@ class Expressions {
         }
 
 
+        private static Object evalFloat(Tree.Kind op, float a) {
+            switch (op) {
+                case PREFIX_INCREMENT     : return a + 1;
+                case PREFIX_DECREMENT     : return a - 1;
+                case UNARY_PLUS           : return +a;
+                case UNARY_MINUS          : return -a;
+            }
+            return null;
+        }
+
+
         private static Object evalFloat(Tree.Kind op, float l, float r) {
             switch (op) {
                 case MULTIPLY             : return l * r;
@@ -211,6 +279,17 @@ class Expressions {
                 case GREATER_THAN_EQUAL   : return l >= r;
                 case EQUAL_TO             : return l == r;
                 case NOT_EQUAL_TO         : return l != r;
+            }
+            return null;
+        }
+
+
+        private static Object evalDouble(Tree.Kind op, double a) {
+            switch (op) {
+                case PREFIX_INCREMENT     : return a + 1;
+                case PREFIX_DECREMENT     : return a - 1;
+                case UNARY_PLUS           : return +a;
+                case UNARY_MINUS          : return -a;
             }
             return null;
         }
@@ -237,5 +316,10 @@ class Expressions {
 
     static Object eval(Tree.Kind op, Object lhs, Object rhs) {
         return Type.of(lhs).evalPromoted(op, lhs, rhs);
+    }
+
+
+    static Object eval(Tree.Kind op, Object arg) {
+        return Type.of(arg).evalPromoted(op, arg);
     }
 }
