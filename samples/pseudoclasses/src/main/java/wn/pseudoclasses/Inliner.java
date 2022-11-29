@@ -344,6 +344,16 @@ class Inliner {
 
 
                 @Override
+                public Extract visitParenthesized(ParenthesizedTree node, Container container) {
+                    Extract extr = scan(node.getExpression(), null);
+                    if (extr != null) return extr;
+                    ExpressionTree expr = node.getExpression();
+                    if (expr instanceof LiteralTree) Editors.replaceTree(getCurrentPath(), expr);
+                    return null;
+                }
+
+
+                @Override
                 public Extract visitTypeCast(TypeCastTree node, Container stmt) {
                     super.visitTypeCast(node, stmt);
                     TreePath path = getCurrentPath();
