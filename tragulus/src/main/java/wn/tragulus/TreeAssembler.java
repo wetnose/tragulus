@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Locale;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import static wn.tragulus.JCUtils.toJCList;
@@ -241,17 +241,26 @@ public class TreeAssembler {
     }
 
 
-    public <T extends Tree> T copyOf(T tree, Function<Tree,Tree> hook) {
+    public <T extends Tree> T copyOf(T tree, BiFunction<Tree,Copier,Tree> hook) {
         if (tree == null) return null;
         //noinspection unchecked
-        return (T) new TreeCopier<Void>(M) {
-            @Override
-            public <X extends JCTree> X copy(X tree, Void unused) {
+        return (T) new TreeCopier<Copier>(M) {
+            <X extends Tree> X copier(X tree) {
                 //noinspection unchecked
-                X cpy = (X) hook.apply(tree);
-                return cpy != null ? cpy : super.copy(tree, unused);
+                return (X) super.copy((JCTree) tree, null);
+            }
+            @Override
+            public <X extends JCTree> X copy(X tree, Copier nil) {
+                //noinspection unchecked
+                X cpy = (X) hook.apply(tree, this::copier);
+                return cpy != null ? cpy : super.copy(tree, null);
             }
         }.copy((JCTree) tree);
+    }
+
+
+    public interface Copier {
+        <T extends Tree> T copy(T tree);
     }
 
 

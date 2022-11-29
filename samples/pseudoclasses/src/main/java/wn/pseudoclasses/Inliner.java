@@ -27,7 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import static wn.pseudoclasses.Pseudos.Err.CANNOT_CAST;
@@ -98,10 +98,10 @@ class Inliner {
             ProcessingHelper helper = pseudos.helper;
             Names names = new Names(unit);
 
-            new TreePathScanner<Extract, Container>() {
+            new TreePathScanner<Extract, Void>() {
 
                 @Override
-                public Extract visitExpressionStatement(ExpressionStatementTree node, Container container) {
+                public Extract visitExpressionStatement(ExpressionStatementTree node, Void unused) {
                     Extract extr = scan(node.getExpression(), null);
                     if (extr == null) return null;
                     Statements stmts = extr.stmts;
@@ -124,7 +124,7 @@ class Inliner {
 
 
                 @Override
-                public Extract visitMethodInvocation(MethodInvocationTree node, Container container) {
+                public Extract visitMethodInvocation(MethodInvocationTree node, Void unused) {
                     TreePath path = getCurrentPath();
                     ExecutableElement elem = (ExecutableElement) trees
                             .getElement(new TreePath(path, node.getMethodSelect()));
@@ -194,7 +194,7 @@ class Inliner {
                         }
                         return new Extract(ret, stmts);
                     } else {
-                        return super.visitMethodInvocation(node, container);
+                        return super.visitMethodInvocation(node, null);
                     }
                 }
 
@@ -226,35 +226,41 @@ class Inliner {
                         Name label = names.generate(elem.getSimpleName());
                         Name var = elem.getReturnType() == pseudos.voidType ? null : names.generate("var");
                         BlockTree body = ((MethodTree) trees.getPath(elem).getLeaf()).getBody();
-                        body = asm.copyOf(body, new Function<>() {
-                            @Override
-                            public Tree apply(Tree t) {
-                                switch (t.getKind()) {
-                                    case IDENTIFIER:
-                                        Name n = ((IdentifierTree) t).getName();
-                                        Tree r = repl.get(n);
-                                        if (r == null && names.contains(n)) {
-                                            repl.put(n, r = asm.identOf(names.generate(n)));
-                                        }
-                                        if (r != null) return r;
-                                        break;
-                                    case MEMBER_SELECT:
-                                        if (JavacUtils.asElement(t) == wrapperValue) return asm.copyOf(self);
-                                        break;
-                                    case RETURN:
-                                        ReturnTree ret = (ReturnTree) t;
-                                        ExpressionTree expr = asm.copyOf(ret.getExpression(), this);
-                                        if (var != null && expr != null) {
-                                            Statements s = new Statements(2);
-                                            s.addAssign(var, expr);
-                                            s.add(asm.brk(label).get());
-                                            return asm.block(s).get();
-                                        } else {
-                                            return asm.brk(label).get();
-                                        }
+                        body = asm.copyOf(body, (t, copier) -> {
+                            switch (t.getKind()) {
+                                case VARIABLE: {
+                                    Name n = ((VariableTree) t).getName();
+                                    Name r = names.generate(n);
+                                    repl.put(n, asm.identOf(r));
+                                    t = copier.copy(t);
+                                    Editors.setName((VariableTree) t, r);
+                                    break;
                                 }
-                                return null;
+                                case IDENTIFIER: {
+                                    return asm.copyOf(repl.get(((IdentifierTree) t).getName()));
+                                }
+                                case MEMBER_SELECT: {
+                                    if (JavacUtils.asElement(t) == wrapperValue) return asm.copyOf(self);
+                                    t = copier.copy(t);
+                                    break;
+                                }
+                                case RETURN: {
+                                    ReturnTree ret = (ReturnTree) t;
+                                    ExpressionTree expr = copier.copy(ret.getExpression());
+                                    if (var != null && expr != null) {
+                                        Statements s = new Statements(2);
+                                        s.addAssign(var, expr);
+                                        s.add(asm.brk(label).get());
+                                        return asm.block(s).get();
+                                    } else {
+                                        return asm.brk(label).get();
+                                    }
+                                }
+                                default:
+                                    t = copier.copy(t);
                             }
+                            Editors.setPos(t, -1);
+                            return t;
                         });
                         if (var != null) stmts.addDecl(elem.getReturnType(), var, null);
                         stmts.add(asm.set(body).labeled(label).get());
@@ -264,8 +270,8 @@ class Inliner {
 
 
                 @Override
-                public Extract visitVariable(VariableTree node, Container stmt) {
-                    super.visitVariable(node, stmt);
+                public Extract visitVariable(VariableTree node, Void unused) {
+                    super.visitVariable(node, null);
                     TreePath path = getCurrentPath();
                     Tree type = node.getType();
                     Extension ext = extensions.get(helper.typeOf(path, type));
@@ -281,7 +287,7 @@ class Inliner {
                 }
 
                 @Override
-                public Extract visitBinary(BinaryTree node, Container unused) {
+                public Extract visitBinary(BinaryTree node, Void unused) {
                     asm.at(node);
                     Tree.Kind kind = node.getKind();
                     Extract lExtr = scan(node.getLeftOperand(), null);
@@ -290,7 +296,7 @@ class Inliner {
                         ExpressionTree left = node.getLeftOperand();
                         ExpressionTree right = node.getRightOperand();
                         if (left instanceof LiteralTree && right instanceof LiteralTree) {
-                            Object res = Evaluator.eval(
+                            Object res = Expressions.eval(
                                     kind, ((LiteralTree) left).getValue(), ((LiteralTree) right).getValue());
                             if (res != null) {
                                 Editors.replaceTree(getCurrentPath(), asm.literal(res).get());
@@ -344,7 +350,7 @@ class Inliner {
 
 
                 @Override
-                public Extract visitParenthesized(ParenthesizedTree node, Container container) {
+                public Extract visitParenthesized(ParenthesizedTree node, Void unused) {
                     Extract extr = scan(node.getExpression(), null);
                     if (extr != null) return extr;
                     ExpressionTree expr = node.getExpression();
@@ -354,8 +360,8 @@ class Inliner {
 
 
                 @Override
-                public Extract visitTypeCast(TypeCastTree node, Container stmt) {
-                    super.visitTypeCast(node, stmt);
+                public Extract visitTypeCast(TypeCastTree node, Void unused) {
+                    super.visitTypeCast(node, null);
                     TreePath path = getCurrentPath();
                     Tree type = node.getType();
                     Extension ext = extensions.get(helper.typeOf(path, type));
@@ -568,9 +574,5 @@ class Inliner {
         public String toString() {
             return names.toString();
         }
-    }
-
-
-    static class Container {
     }
 }

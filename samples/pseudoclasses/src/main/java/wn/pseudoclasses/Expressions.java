@@ -12,13 +12,13 @@ import java.util.Map;
  * Time: 2:48 AM
  * todo: test this
  */
-class Evaluator {
+class Expressions {
 
 
     enum Type {
         BOOLEAN {
             @Override
-            public Object eval(Tree.Kind op, Object lhs, Object rhs) {
+            public Object evalPromoted(Tree.Kind op, Object lhs, Object rhs) {
                 switch (Type.of(rhs)) {
                     case BOOLEAN:
                         return Type.evalBool(op, (boolean) lhs, (boolean) rhs);
@@ -30,40 +30,46 @@ class Evaluator {
 
         INT {
             @Override
-            public Object eval(Tree.Kind op, Object lhs, Object rhs) {
+            public Object evalPromoted(Tree.Kind op, Object lhs, Object rhs) {
                 switch (Type.of(rhs)) {
                     case INT:
                         return Type.evalInt(op, ((Number) lhs).intValue(), ((Number) rhs).intValue());
-                    default:
-                        return LONG.eval(op, lhs, rhs);
-
+                    case LONG:
+                        switch (op) {
+                            case LEFT_SHIFT           :
+                            case RIGHT_SHIFT          :
+                            case UNSIGNED_RIGHT_SHIFT :
+                                return Type.shiftLong(op, ((Number) lhs).intValue(), ((Number) rhs).longValue());
+                        }
+                        break;
                 }
+                return LONG.evalPromoted(op, lhs, rhs); //todo correct for shift operators
             }
         },
 
         LONG {
             @Override
-            public Object eval(Tree.Kind op, Object lhs, Object rhs) {
+            public Object evalPromoted(Tree.Kind op, Object lhs, Object rhs) {
                 switch (Type.of(rhs)) {
                     case INT:
                     case LONG:
-                        return Type.evalLong(op, ((Number) lhs).intValue(), ((Number) rhs).intValue());
+                        return Type.evalLong(op, ((Number) lhs).longValue(), ((Number) rhs).longValue());
                     default:
-                        return FLOAT.eval(op, lhs, rhs);
+                        return FLOAT.evalPromoted(op, lhs, rhs);
                 }
             }
         },
 
         FLOAT {
             @Override
-            Object eval(Tree.Kind op, Object lhs, Object rhs) {
+            Object evalPromoted(Tree.Kind op, Object lhs, Object rhs) {
                 switch (Type.of(rhs)) {
                     case INT:
                     case LONG:
                     case FLOAT:
                         return Type.evalFloat(op, ((Number) lhs).floatValue(), ((Number) rhs).floatValue());
                     case DOUBLE:
-                        return DOUBLE.eval(op, lhs, rhs);
+                        return Type.evalDouble(op, ((Number) lhs).doubleValue(), ((Number) rhs).doubleValue());
                     default:
                         return null;
                 }
@@ -72,7 +78,7 @@ class Evaluator {
 
         DOUBLE  {
             @Override
-            Object eval(Tree.Kind op, Object lhs, Object rhs) {
+            Object evalPromoted(Tree.Kind op, Object lhs, Object rhs) {
                 switch (Type.of(rhs)) {
                     case INT:
                     case LONG:
@@ -87,7 +93,7 @@ class Evaluator {
 
         OTHER  {
             @Override
-            Object eval(Tree.Kind op, Object lhs, Object rhs) {
+            Object evalPromoted(Tree.Kind op, Object lhs, Object rhs) {
                 return null;
             }
         },
@@ -117,7 +123,7 @@ class Evaluator {
         }
 
 
-        abstract Object eval(Tree.Kind op, Object lhs, Object rhs);
+        abstract Object evalPromoted(Tree.Kind op, Object lhs, Object rhs);
 
 
         private static Object evalBool(Tree.Kind op, boolean l, boolean r) {
@@ -182,6 +188,16 @@ class Evaluator {
         }
 
 
+        private static Object shiftLong(Tree.Kind op, int l, long r) {
+            switch (op) {
+                case LEFT_SHIFT           : return l << r;
+                case RIGHT_SHIFT          : return l >> r;
+                case UNSIGNED_RIGHT_SHIFT : return l >>> r;
+            }
+            return null;
+        }
+
+
         private static Object evalFloat(Tree.Kind op, float l, float r) {
             switch (op) {
                 case MULTIPLY             : return l * r;
@@ -220,6 +236,6 @@ class Evaluator {
 
 
     static Object eval(Tree.Kind op, Object lhs, Object rhs) {
-        return Type.of(lhs).eval(op, lhs, rhs);
+        return Type.of(lhs).evalPromoted(op, lhs, rhs);
     }
 }

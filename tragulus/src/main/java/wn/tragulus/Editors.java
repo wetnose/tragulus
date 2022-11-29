@@ -22,6 +22,9 @@ import static wn.tragulus.JCUtils.toJCList;
  */
 public class Editors {
 
+    public static void setPos(Tree node, int pos) {
+        ((JCTree) node).pos = pos;
+    }
 
     public static void setLabel(BreakTree node, Name label) {
         ((JCBreak) node).label = (com.sun.tools.javac.util.Name) label;
