@@ -8,6 +8,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.tree.JCTree.JCModifiers;
 import com.sun.tools.javac.tree.JCTree.Tag;
 import com.sun.tools.javac.tree.TreeInfo;
@@ -396,19 +397,7 @@ public class JavacUtils {
 
     // 14.8. Expression Statements
     public static boolean isStatementExpression(ExpressionTree tree) {
-        //return TreeInfo.isExpressionStatement((JCExpression) tree);
-        switch (tree.getKind()) {
-            case ASSIGNMENT:
-            case PREFIX_INCREMENT:
-            case PREFIX_DECREMENT:
-            case POSTFIX_INCREMENT:
-            case POSTFIX_DECREMENT:
-            case METHOD_INVOCATION:
-            case NEW_CLASS:
-                return true;
-            default:
-                return false;
-        }
+        return TreeInfo.isExpressionStatement((JCExpression) tree);
     }
 
 

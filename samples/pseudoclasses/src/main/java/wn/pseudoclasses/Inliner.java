@@ -282,7 +282,7 @@ class Inliner {
                                     }
                                     case RETURN: {
                                         ReturnTree ret = (ReturnTree) t;
-                                        ExpressionTree expr = copier.copy(ret.getExpression());
+                                        ExpressionTree expr = copy(ret.getExpression(), copier);
                                         if (var != null && expr != null) {
                                             Statements s = new Statements(2);
                                             s.addAssign(var, expr);
@@ -292,22 +292,35 @@ class Inliner {
                                             return asm.brk(label).get();
                                         }
                                     }
-                                    case PARENTHESIZED:
+                                    case EXPRESSION_STATEMENT: {
+                                        ExpressionTree expr = copy(((ExpressionStatementTree) t).getExpression(), copier);
+                                        if (JavacUtils.isStatementExpression(expr)
+                                                && !(JavacUtils.getAssignableExpression(expr) instanceof LiteralTree)) {
+                                            return asm.set(expr).exec().get();
+                                        } else {
+                                            return asm.empty().get();
+                                        }
+                                    }
+                                    case PARENTHESIZED: {
                                         ExpressionTree e = copy(((ParenthesizedTree) t).getExpression(), copier);
                                         if (e instanceof LiteralTree || e instanceof IdentifierTree) {
                                             return e;
                                         }
                                         return asm.par(e).get();
+                                    }
                                     default:
                                         if (t instanceof UnaryTree) {
                                             UnaryTree u = (UnaryTree) t;
                                             Name n = JavacUtils.getAssignableVariable(t);
                                             ExpressionTree a = u.getExpression();
                                             a = copy(a, copier);
-                                            if (n != null) repl.replace(n, a);
                                             if (a instanceof LiteralTree) {
                                                 Object res = Expressions.eval(kind, ((LiteralTree) a).getValue());
-                                                if (res != null) return asm.literal(res).get();
+                                                if (res != null) {
+                                                    t = asm.literal(res).get();
+                                                    if (n != null) repl.replace(n, t);
+                                                    return t;
+                                                }
                                             }
                                             return asm.uno(kind, A, a).get(A);
                                         } else
@@ -321,17 +334,22 @@ class Inliner {
                                                 if (res != null) return asm.literal(res).get();
                                             }
                                             return asm.set(A, l).bin(kind, A, r).get(A);
-//                                        } else
-//                                        if (t instanceof CompoundAssignmentTree) {
-//                                            CompoundAssignmentTree c = (CompoundAssignmentTree) t;
-//                                            ExpressionTree l = copy(c.getVariable(), copier);
-//                                            ExpressionTree r = copy(c.getExpression(), copier);
-//                                            if (l instanceof LiteralTree && r instanceof LiteralTree) {
-//                                                Object res = Expressions.eval(
-//                                                        kind, ((LiteralTree) l).getValue(), ((LiteralTree) r).getValue());
-//                                                if (res != null) return asm.literal(res).get();
-//                                            }
-//                                            return asm.set(A, l).assign(kind, A, r).get(A);
+                                        } else
+                                        if (t instanceof CompoundAssignmentTree) {
+                                            CompoundAssignmentTree c = (CompoundAssignmentTree) t;
+                                            Name n = JavacUtils.getAssignableVariable(t);
+                                            ExpressionTree l = copy(c.getVariable(), copier);
+                                            ExpressionTree r = copy(c.getExpression(), copier);
+                                            if (l instanceof LiteralTree && r instanceof LiteralTree) {
+                                                Object res = Expressions.eval(
+                                                        kind, ((LiteralTree) l).getValue(), ((LiteralTree) r).getValue());
+                                                if (res != null) {
+                                                    t = asm.literal(res).get();
+                                                    if (n != null) repl.replace(n, t);
+                                                    return t;
+                                                }
+                                            }
+                                            return asm.set(A, l).assign(kind, A, r).get(A);
                                         } else {
                                             return copier.copy(t);
                                         }
