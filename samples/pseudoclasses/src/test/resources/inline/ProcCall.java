@@ -7,4 +7,9 @@ public class ProcCall {
         an.setByteIdx(1+2, an.getByte(2));
         System.out.println(an);
     }
+
+
+    int get1(int val) {
+        return ((IntAnatomy0) val).getByte(1);
+    }
 }

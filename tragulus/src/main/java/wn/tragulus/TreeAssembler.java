@@ -712,6 +712,17 @@ public class TreeAssembler {
     }
 
 
+    public TreeAssembler ret(ExpressionTree expr) {
+        return ret(0, expr);
+    }
+
+
+    public TreeAssembler ret(int reg, ExpressionTree expr) {
+        set(reg, M.Return((JCExpression) expr));
+        return this;
+    }
+
+
     public TreeAssembler cond(int condReg, int trueReg, int falseReg) {
         JCExpression cond = get(condReg, JCExpression.class);
         JCExpression truePart = get(trueReg, JCExpression.class);

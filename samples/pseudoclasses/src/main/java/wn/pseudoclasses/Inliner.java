@@ -83,6 +83,7 @@ class Inliner {
 
     private class UnitProcessor {
 
+        final ProcessingHelper helper = pseudos.helper;
         final Map<TypeMirror,Extension> extensions;
 
         UnitProcessor(Collection<PseudoType> pseudotypes) {
@@ -96,14 +97,17 @@ class Inliner {
 
         void process(CompilationUnitTree unit) {
 
-            ProcessingHelper helper = pseudos.helper;
             Names names = new Names(unit);
+            Exploit exploit = new Exploit();
+            exploit.maskErroneousCasts(new TreePath(unit));
 
             new TreePathScanner<Extract, Void>() {
 
                 @Override
                 public Extract reduce(Extract r1, Extract r2) {
-                    if (r1 != null || r2 != null) throw new AssertionError();
+                    if (r1 != null || r2 != null) {
+                        helper.printError("Internal error", getCurrentPath());
+                    }
                     return null;
                 }
 
@@ -134,16 +138,16 @@ class Inliner {
                 @Override
                 public Extract visitMethodInvocation(MethodInvocationTree node, Void unused) {
                     TreePath path = getCurrentPath();
+                    Extract selExtr = scan(node.getMethodSelect(), null);
                     ExecutableElement elem = (ExecutableElement) trees
                             .getElement(new TreePath(path, node.getMethodSelect()));
                     Extension ext = extensions.get(elem.getEnclosingElement().asType());
                     if (ext != null && !(ext instanceof Pseudos.Wrapper)) {
+                        ext = null;
                         helper.printError("not supported yet", elem);
-                        return super.visitMethodInvocation(node, null);
                     }
                     List<? extends Tree> typeArgs = node.getTypeArguments();
                     //todo scan(typeArgs, null);
-                    Extract selExtr = scan(node.getMethodSelect(), null);
                     ExpressionTree[] args = node.getArguments().toArray(new ExpressionTree[0]);
                     int argCount = args.length, extrCount = 0;
                     Extract[] argExtr = new Extract[argCount];
@@ -486,21 +490,35 @@ class Inliner {
 
                 @Override
                 public Extract visitTypeCast(TypeCastTree node, Void unused) {
-                    super.visitTypeCast(node, null);
                     TreePath path = getCurrentPath();
+                    scan(node.getType(), null);
                     Tree type = node.getType();
-                    Extension ext = extensions.get(helper.typeOf(path, type));
+                    Extension ext = extensions.get(helper.attributeType(new TreePath(path, type)));
                     if (ext != null) {
+                        scan(exploit.unmaskErroneousCasts(new TreePath(path, node.getExpression())), null);
                         ExpressionTree expr = node.getExpression();
                         TypeMirror replace = ext.wrappedType;
                         if (types.isAssignable(helper.typeOf(path, expr), replace)) {
                             pseudos.suppressDiagnostics(CANNOT_CAST, expr);
                             Editors.setType(node, asm.at(type).type(replace).asExpr());
                         }
+                    } else {
+                        scan(node.getExpression(), null);
                     }
                     return null;
                 }
 
+
+                @Override
+                public Extract visitReturn(ReturnTree node, Void unused) {
+                    Extract ext = scan(node.getExpression(), null);
+                    if (ext != null) {
+                        Statements stmts = ext.stmts;
+                        stmts.add(asm.at(node).ret(ext.expr).asStat());
+                        Editors.replaceTree(getCurrentPath(), asm.block(stmts).get());
+                    }
+                    return null;
+                }
             }.scan(unit, null);
 
             System.out.println(unit);
@@ -508,6 +526,37 @@ class Inliner {
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+        class Exploit {
+
+            void maskErroneousCasts(TreePath path) {
+                new TreePathScanner<TypeMirror,Void>() {
+                    @Override
+                    public TypeMirror reduce(TypeMirror r1, TypeMirror r2) {
+                        return null;
+                    }
+                    @Override
+                    public TypeMirror visitTypeCast(TypeCastTree node, Void unused) {
+                        TypeMirror type = helper.attributeType(new TreePath(getCurrentPath(), node.getType()));
+                        ExpressionTree expr = node.getExpression();
+                        Extension ext = extensions.get(type);
+                        TypeMirror next = scan(expr, null);
+                        Editors.replaceTree(node, expr, asm.at(expr).set(expr).cast(pseudos.objectType).get());
+                        if (ext == null) return type;
+                        return type;
+                    }
+                }.scan(path, null);
+            }
+
+            ExpressionTree unmaskErroneousCasts(TreePath path) {
+                ExpressionTree node = (ExpressionTree) path.getLeaf();
+                if (!(node instanceof TypeCastTree)) return node;
+                TypeMirror type = helper.attributeType(new TreePath(path, ((TypeCastTree) node).getType()));
+                if (type == pseudos.objectType) Editors.replaceTree(path, node = ((TypeCastTree) node).getExpression());
+                return node;
+            }
+        }
     }
 
 
