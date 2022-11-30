@@ -223,11 +223,17 @@ class Inliner {
                         final HashSet<Name> trueVars = new HashSet<>();
                         BlockTree body = ((MethodTree) trees.getPath(elem).getLeaf()).getBody();
                         JavacUtils.scan(body, t -> {
-                            ExpressionTree expr = t instanceof UnaryTree ? null : JavacUtils.getAssignableVariable(t);
-                            if (expr == null && t instanceof MethodInvocationTree)
-                                expr = ((MethodInvocationTree) t).getMethodSelect();
-                            if (expr instanceof IdentifierTree) {
-                                trueVars.add(((IdentifierTree) expr).getName());
+                            ExpressionTree var = t instanceof UnaryTree ? null : JavacUtils.getAssignableExpression(t);
+                            if (var != null) {
+                                if (t instanceof CompoundAssignmentTree) {
+                                    ExpressionTree expr = ((CompoundAssignmentTree) t).getExpression();
+                                    if (expr instanceof LiteralTree) var = null; // c += 2 -> c + 2
+                                }
+                            } else
+                            if (t instanceof MethodInvocationTree)
+                                var = ((MethodInvocationTree) t).getMethodSelect(); // c.inv()
+                            if (var instanceof IdentifierTree) {
+                                trueVars.add(((IdentifierTree) var).getName());
                             }
                         });
                         for (int i=0, argCount=args.length; i < argCount; i++) {
@@ -295,7 +301,10 @@ class Inliner {
                                     default:
                                         if (t instanceof UnaryTree) {
                                             UnaryTree u = (UnaryTree) t;
-                                            ExpressionTree a = copy(u.getExpression(), copier);
+                                            Name n = JavacUtils.getAssignableVariable(t);
+                                            ExpressionTree a = u.getExpression();
+                                            a = copy(a, copier);
+                                            if (n != null) repl.replace(n, a);
                                             if (a instanceof LiteralTree) {
                                                 Object res = Expressions.eval(kind, ((LiteralTree) a).getValue());
                                                 if (res != null) return asm.literal(res).get();

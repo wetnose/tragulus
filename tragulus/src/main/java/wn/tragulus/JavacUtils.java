@@ -16,6 +16,7 @@ import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 
 import javax.annotation.processing.Processor;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -437,7 +438,13 @@ public class JavacUtils {
 //    }
 
 
-    public static ExpressionTree getAssignableVariable(Tree expr) {
+    public static Name getAssignableVariable(Tree expr) {
+        expr = getAssignableExpression(expr);
+        return expr instanceof IdentifierTree ? ((IdentifierTree) expr).getName() : null;
+    }
+
+
+    public static ExpressionTree getAssignableExpression(Tree expr) {
         if (expr == null) return null;
         switch (expr.getKind()) {
             case ASSIGNMENT:                      // =
