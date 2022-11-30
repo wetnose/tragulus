@@ -531,20 +531,16 @@ class Inliner {
         class Exploit {
 
             void maskErroneousCasts(TreePath path) {
-                new TreePathScanner<TypeMirror,Void>() {
+                new TreePathScanner<Void,Void>() {
                     @Override
-                    public TypeMirror reduce(TypeMirror r1, TypeMirror r2) {
-                        return null;
-                    }
-                    @Override
-                    public TypeMirror visitTypeCast(TypeCastTree node, Void unused) {
+                    public Void visitTypeCast(TypeCastTree node, Void unused) {
                         TypeMirror type = helper.attributeType(new TreePath(getCurrentPath(), node.getType()));
                         ExpressionTree expr = node.getExpression();
                         Extension ext = extensions.get(type);
-                        TypeMirror next = scan(expr, null);
-                        Editors.replaceTree(node, expr, asm.at(expr).set(expr).cast(pseudos.objectType).get());
-                        if (ext == null) return type;
-                        return type;
+                        if (ext != null)
+                            Editors.replaceTree(node, expr, expr = asm.at(expr).set(expr).cast(pseudos.objectType).get());
+                        scan(expr, null);
+                        return null;
                     }
                 }.scan(path, null);
             }
