@@ -411,40 +411,112 @@ public class JavacUtils {
     }
 
 
+//    public static boolean isAssignment(Tree.Kind kind) {
+//        if (kind == null) return false;
+//        switch (kind) {
+//            case ASSIGNMENT:                      // =
+//            case PREFIX_INCREMENT:                // ++ _
+//            case PREFIX_DECREMENT:                // -- _
+//            case POSTFIX_INCREMENT:               // _ ++
+//            case POSTFIX_DECREMENT:               // _ --
+//            case MULTIPLY_ASSIGNMENT:             // *=
+//            case DIVIDE_ASSIGNMENT:               // /=
+//            case REMAINDER_ASSIGNMENT:            // %=
+//            case PLUS_ASSIGNMENT:                 // +=
+//            case MINUS_ASSIGNMENT:                // -=
+//            case LEFT_SHIFT_ASSIGNMENT:           // <<=
+//            case RIGHT_SHIFT_ASSIGNMENT:          // >>=
+//            case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT: // >>>=
+//            case AND_ASSIGNMENT:                  // &=
+//            case XOR_ASSIGNMENT:                  // ^=
+//            case OR_ASSIGNMENT:                   // |=
+//                return true;
+//            default:
+//                return false;
+//        }
+//    }
+
+
+    public static ExpressionTree getAssignableVariable(Tree expr) {
+        if (expr == null) return null;
+        switch (expr.getKind()) {
+            case ASSIGNMENT:                      // =
+                return ((AssignmentTree) expr).getVariable();
+            case PREFIX_INCREMENT:                // ++ _
+            case PREFIX_DECREMENT:                // -- _
+            case POSTFIX_INCREMENT:               // _ ++
+            case POSTFIX_DECREMENT:               // _ --
+                return ((UnaryTree) expr).getExpression();
+            case MULTIPLY_ASSIGNMENT:             // *=
+            case DIVIDE_ASSIGNMENT:               // /=
+            case REMAINDER_ASSIGNMENT:            // %=
+            case PLUS_ASSIGNMENT:                 // +=
+            case MINUS_ASSIGNMENT:                // -=
+            case LEFT_SHIFT_ASSIGNMENT:           // <<=
+            case RIGHT_SHIFT_ASSIGNMENT:          // >>=
+            case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT: // >>>=
+            case AND_ASSIGNMENT:                  // &=
+            case XOR_ASSIGNMENT:                  // ^=
+            case OR_ASSIGNMENT:                   // |=
+                return ((CompoundAssignmentTree) expr).getVariable();
+            default:
+                return null;
+        }
+    }
+
+
     static Tag kindToTag(Tree.Kind kind) {
         if (kind == null) return null;
         switch (kind) {
 
             // Unary operators
 
-            case PREFIX_INCREMENT     : return Tag.PREINC; // ++ _
-            case PREFIX_DECREMENT     : return Tag.PREDEC; // -- _
-            case UNARY_PLUS           : return Tag.POS;    // +
-            case UNARY_MINUS          : return Tag.NEG;    // -
-            case BITWISE_COMPLEMENT   : return Tag.COMPL ; // ~
-            case LOGICAL_COMPLEMENT   : return Tag.NOT;    // !
+            case PREFIX_INCREMENT     : return Tag.PREINC;     // ++ _
+            case PREFIX_DECREMENT     : return Tag.PREDEC;     // -- _
+            case POSTFIX_INCREMENT    : return Tag.POSTINC;    // _ ++
+            case POSTFIX_DECREMENT    : return Tag.POSTDEC;    // _ --
+            case UNARY_PLUS           : return Tag.POS;        // +
+            case UNARY_MINUS          : return Tag.NEG;        // -
+            case BITWISE_COMPLEMENT   : return Tag.COMPL ;     // ~
+            case LOGICAL_COMPLEMENT   : return Tag.NOT;        // !
 
             // Binary operators
 
-            case MULTIPLY             : return Tag.MUL;    // *
-            case DIVIDE               : return Tag.DIV;    // /
-            case REMAINDER            : return Tag.MOD;    // %
-            case PLUS                 : return Tag.PLUS;   // +
-            case MINUS                : return Tag.MINUS;  // -
-            case LEFT_SHIFT           : return Tag.SL;     // <<
-            case RIGHT_SHIFT          : return Tag.SR;     // >>
-            case UNSIGNED_RIGHT_SHIFT : return Tag.USR;    // >>>
-            case LESS_THAN            : return Tag.LT;     // <
-            case GREATER_THAN         : return Tag.GT;     // >
-            case LESS_THAN_EQUAL      : return Tag.LE;     // <=
-            case GREATER_THAN_EQUAL   : return Tag.GE;     // >=
-            case EQUAL_TO             : return Tag.EQ;     // ==
-            case NOT_EQUAL_TO         : return Tag.NE;     // !=
-            case AND                  : return Tag.BITAND; // &
-            case XOR                  : return Tag.BITXOR; // ^
-            case OR                   : return Tag.BITOR;  // |
-            case CONDITIONAL_AND      : return Tag.AND;    // &&
-            case CONDITIONAL_OR       : return Tag.OR;     // ||
+            case MULTIPLY             : return Tag.MUL;        // *
+            case DIVIDE               : return Tag.DIV;        // /
+            case REMAINDER            : return Tag.MOD;        // %
+            case PLUS                 : return Tag.PLUS;       // +
+            case MINUS                : return Tag.MINUS;      // -
+            case LEFT_SHIFT           : return Tag.SL;         // <<
+            case RIGHT_SHIFT          : return Tag.SR;         // >>
+            case UNSIGNED_RIGHT_SHIFT : return Tag.USR;        // >>>
+            case LESS_THAN            : return Tag.LT;         // <
+            case GREATER_THAN         : return Tag.GT;         // >
+            case LESS_THAN_EQUAL      : return Tag.LE;         // <=
+            case GREATER_THAN_EQUAL   : return Tag.GE;         // >=
+            case EQUAL_TO             : return Tag.EQ;         // ==
+            case NOT_EQUAL_TO         : return Tag.NE;         // !=
+            case AND                  : return Tag.BITAND;     // &
+            case XOR                  : return Tag.BITXOR;     // ^
+            case OR                   : return Tag.BITOR;      // |
+            case CONDITIONAL_AND      : return Tag.AND;        // &&
+            case CONDITIONAL_OR       : return Tag.OR;         // ||
+
+            // Assignment operators
+
+            case MULTIPLY_ASSIGNMENT  : return Tag.MUL_ASG;    // *=
+            case DIVIDE_ASSIGNMENT    : return Tag.DIV_ASG;    // /=
+            case REMAINDER_ASSIGNMENT : return Tag.MOD_ASG;    // %=
+            case PLUS_ASSIGNMENT      : return Tag.PLUS_ASG;   // +=
+            case MINUS_ASSIGNMENT     : return Tag.MINUS_ASG;  // -=
+            case LEFT_SHIFT_ASSIGNMENT: return Tag.SL_ASG;     // <<=
+            case RIGHT_SHIFT_ASSIGNMENT:
+                                        return Tag.SR_ASG;     // >>=
+            case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT:
+                                        return Tag.USR_ASG;    // >>>=
+            case AND_ASSIGNMENT       : return Tag.BITAND_ASG; // &=
+            case XOR_ASSIGNMENT       : return Tag.BITXOR_ASG; // ^=
+            case OR_ASSIGNMENT        : return Tag.BITOR_ASG;  // |=
         }
         throw new IllegalArgumentException();
     }

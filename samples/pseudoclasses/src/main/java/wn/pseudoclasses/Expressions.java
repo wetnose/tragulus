@@ -5,6 +5,7 @@ import com.sun.source.tree.Tree;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Alexander A. Solovioff
@@ -163,8 +164,11 @@ class Expressions {
             switch (op) {
                 case EQUAL_TO             : return l == r;
                 case NOT_EQUAL_TO         : return l != r;
+                case AND_ASSIGNMENT       :
                 case AND                  : return l & r;
+                case XOR_ASSIGNMENT       :
                 case XOR                  : return l ^ r;
+                case OR_ASSIGNMENT        :
                 case OR                   : return l | r;
                 case CONDITIONAL_AND      : return l && r;
                 case CONDITIONAL_OR       : return l || r;
@@ -175,7 +179,9 @@ class Expressions {
 
         private static Object evalInt(Tree.Kind op, int a) {
             switch (op) {
+                case POSTFIX_INCREMENT    :
                 case PREFIX_INCREMENT     : return a + 1;
+                case POSTFIX_DECREMENT    :
                 case PREFIX_DECREMENT     : return a - 1;
                 case UNARY_PLUS           : return +a;
                 case UNARY_MINUS          : return -a;
@@ -187,13 +193,21 @@ class Expressions {
 
         private static Object evalInt(Tree.Kind op, int l, int r) {
             switch (op) {
+                case MULTIPLY_ASSIGNMENT  :
                 case MULTIPLY             : return l * r;
+                case DIVIDE_ASSIGNMENT    :
                 case DIVIDE               : return l / r;
+                case REMAINDER_ASSIGNMENT :
                 case REMAINDER            : return l % r;
+                case PLUS_ASSIGNMENT      :
                 case PLUS                 : return l + r;
+                case MINUS_ASSIGNMENT     :
                 case MINUS                : return l - r;
+                case LEFT_SHIFT_ASSIGNMENT:
                 case LEFT_SHIFT           : return l << r;
+                case RIGHT_SHIFT_ASSIGNMENT:
                 case RIGHT_SHIFT          : return l >> r;
+                case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT:
                 case UNSIGNED_RIGHT_SHIFT : return l >>> r;
                 case LESS_THAN            : return l < r;
                 case GREATER_THAN         : return l > r;
@@ -201,8 +215,11 @@ class Expressions {
                 case GREATER_THAN_EQUAL   : return l >= r;
                 case EQUAL_TO             : return l == r;
                 case NOT_EQUAL_TO         : return l != r;
+                case AND_ASSIGNMENT       :
                 case AND                  : return l & r;
+                case XOR_ASSIGNMENT       :
                 case XOR                  : return l ^ r;
+                case OR_ASSIGNMENT        :
                 case OR                   : return l | r;
             }
             return null;
@@ -211,7 +228,9 @@ class Expressions {
 
         private static Object evalLong(Tree.Kind op, long a) {
             switch (op) {
+                case POSTFIX_INCREMENT    :
                 case PREFIX_INCREMENT     : return a + 1;
+                case POSTFIX_DECREMENT    :
                 case PREFIX_DECREMENT     : return a - 1;
                 case UNARY_PLUS           : return +a;
                 case UNARY_MINUS          : return -a;
@@ -223,13 +242,21 @@ class Expressions {
 
         private static Object evalLong(Tree.Kind op, long l, long r) {
             switch (op) {
+                case MULTIPLY_ASSIGNMENT  :
                 case MULTIPLY             : return l * r;
+                case DIVIDE_ASSIGNMENT    :
                 case DIVIDE               : return l / r;
+                case REMAINDER_ASSIGNMENT :
                 case REMAINDER            : return l % r;
+                case PLUS_ASSIGNMENT      :
                 case PLUS                 : return l + r;
+                case MINUS_ASSIGNMENT     :
                 case MINUS                : return l - r;
+                case LEFT_SHIFT_ASSIGNMENT:
                 case LEFT_SHIFT           : return l << r;
+                case RIGHT_SHIFT_ASSIGNMENT:
                 case RIGHT_SHIFT          : return l >> r;
+                case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT:
                 case UNSIGNED_RIGHT_SHIFT : return l >>> r;
                 case LESS_THAN            : return l < r;
                 case GREATER_THAN         : return l > r;
@@ -237,8 +264,11 @@ class Expressions {
                 case GREATER_THAN_EQUAL   : return l >= r;
                 case EQUAL_TO             : return l == r;
                 case NOT_EQUAL_TO         : return l != r;
+                case AND_ASSIGNMENT       :
                 case AND                  : return l & r;
+                case XOR_ASSIGNMENT       :
                 case XOR                  : return l ^ r;
+                case OR_ASSIGNMENT        :
                 case OR                   : return l | r;
             }
             return null;
@@ -247,8 +277,11 @@ class Expressions {
 
         private static Object shiftLong(Tree.Kind op, int l, long r) {
             switch (op) {
+                case LEFT_SHIFT_ASSIGNMENT:
                 case LEFT_SHIFT           : return l << r;
+                case RIGHT_SHIFT_ASSIGNMENT:
                 case RIGHT_SHIFT          : return l >> r;
+                case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT:
                 case UNSIGNED_RIGHT_SHIFT : return l >>> r;
             }
             return null;
@@ -257,7 +290,9 @@ class Expressions {
 
         private static Object evalFloat(Tree.Kind op, float a) {
             switch (op) {
+                case POSTFIX_INCREMENT    :
                 case PREFIX_INCREMENT     : return a + 1;
+                case POSTFIX_DECREMENT    :
                 case PREFIX_DECREMENT     : return a - 1;
                 case UNARY_PLUS           : return +a;
                 case UNARY_MINUS          : return -a;
@@ -268,10 +303,15 @@ class Expressions {
 
         private static Object evalFloat(Tree.Kind op, float l, float r) {
             switch (op) {
+                case MULTIPLY_ASSIGNMENT  :
                 case MULTIPLY             : return l * r;
+                case DIVIDE_ASSIGNMENT    :
                 case DIVIDE               : return l / r;
+                case REMAINDER_ASSIGNMENT :
                 case REMAINDER            : return l % r;
+                case PLUS_ASSIGNMENT      :
                 case PLUS                 : return l + r;
+                case MINUS_ASSIGNMENT     :
                 case MINUS                : return l - r;
                 case LESS_THAN            : return l < r;
                 case GREATER_THAN         : return l > r;
@@ -286,7 +326,9 @@ class Expressions {
 
         private static Object evalDouble(Tree.Kind op, double a) {
             switch (op) {
+                case POSTFIX_INCREMENT    :
                 case PREFIX_INCREMENT     : return a + 1;
+                case POSTFIX_DECREMENT    :
                 case PREFIX_DECREMENT     : return a - 1;
                 case UNARY_PLUS           : return +a;
                 case UNARY_MINUS          : return -a;
@@ -297,10 +339,15 @@ class Expressions {
 
         private static Object evalDouble(Tree.Kind op, double l, double r) {
             switch (op) {
+                case MULTIPLY_ASSIGNMENT  :
                 case MULTIPLY             : return l * r;
+                case DIVIDE_ASSIGNMENT    :
                 case DIVIDE               : return l / r;
+                case REMAINDER_ASSIGNMENT :
                 case REMAINDER            : return l % r;
+                case PLUS_ASSIGNMENT      :
                 case PLUS                 : return l + r;
+                case MINUS_ASSIGNMENT     :
                 case MINUS                : return l - r;
                 case LESS_THAN            : return l < r;
                 case GREATER_THAN         : return l > r;
@@ -314,8 +361,40 @@ class Expressions {
     }
 
 
+    static final Map<Class<?>, Function<Object,Object>> casting;
+    static {
+        HashMap<Class<?>, Function<Object,Object>> c = new HashMap<>();
+        c.put(Boolean.class   , v -> (boolean) v);
+        c.put(Character.class , v -> (char) v);
+        c.put(Byte.class      , v -> (byte) v);
+        c.put(Short.class     , v -> (short) v);
+        c.put(Integer.class   , v -> (int) v);
+        c.put(Long.class      , v -> (long) v);
+        c.put(Float.class     , v -> (float) v);
+        c.put(Double.class    , v -> (double) v);
+        casting = Collections.unmodifiableMap(c);
+    }
+
+
     static Object eval(Tree.Kind op, Object lhs, Object rhs) {
-        return Type.of(lhs).evalPromoted(op, lhs, rhs);
+        Object res = Type.of(lhs).evalPromoted(op, lhs, rhs);
+        if (res != null) {
+            switch (op) {
+                case MULTIPLY_ASSIGNMENT:
+                case DIVIDE_ASSIGNMENT:
+                case REMAINDER_ASSIGNMENT:
+                case PLUS_ASSIGNMENT:
+                case MINUS_ASSIGNMENT:
+                case LEFT_SHIFT_ASSIGNMENT:
+                case RIGHT_SHIFT_ASSIGNMENT:
+                case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT:
+                case AND_ASSIGNMENT:
+                case XOR_ASSIGNMENT:
+                case OR_ASSIGNMENT:
+                    return casting.get(lhs.getClass()).apply(res);
+            }
+        }
+        return res;
     }
 
 

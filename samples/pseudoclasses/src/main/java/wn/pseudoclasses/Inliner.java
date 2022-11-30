@@ -220,10 +220,24 @@ class Inliner {
                     ExpressionTree inline(Tree pos, ExpressionTree self, ExpressionTree[] args, Statements stmts) {
                         assert args.length == params.length;
                         final HashMap<Name,Tree> repl = new HashMap<>();
+                        final HashSet<Name> trueVars = new HashSet<>();
+                        BlockTree body = ((MethodTree) trees.getPath(elem).getLeaf()).getBody();
+                        JavacUtils.scan(body, t -> {
+                            ExpressionTree expr = t instanceof UnaryTree ? null : JavacUtils.getAssignableVariable(t);
+                            if (expr == null && t instanceof MethodInvocationTree)
+                                expr = ((MethodInvocationTree) t).getMethodSelect();
+                            if (expr instanceof IdentifierTree) {
+                                trueVars.add(((IdentifierTree) expr).getName());
+                            }
+                        });
                         for (int i=0, argCount=args.length; i < argCount; i++) {
                             VariableElement param = params[i];
                             Name name = param.getSimpleName();
                             ExpressionTree arg = args[i];
+                            if (trueVars.contains(name)) {
+                                Name r = names.generate(name);
+                                repl.put(name, asm.at(arg).identOf(stmts.addDecl(param.asType(), r, arg)));
+                            } else
                             if (arg instanceof LiteralTree) {
                                 repl.put(name, arg);
                             } else {
@@ -232,7 +246,6 @@ class Inliner {
                         }
                         Name label = names.generate(elem.getSimpleName());
                         Name var = elem.getReturnType() == pseudos.voidType ? null : names.generate("var");
-                        BlockTree body = ((MethodTree) trees.getPath(elem).getLeaf()).getBody();
                         body = asm.reset().copyOf(body, new BiFunction<Tree,Copier,Tree>() {
                             @Override
                             public Tree apply(Tree t, Copier copier) {
@@ -243,7 +256,8 @@ class Inliner {
                                         Name n = v.getName();
                                         v = copier.copy(v);
                                         ExpressionTree init = v.getInitializer();
-                                        if (init instanceof LiteralTree || init instanceof IdentifierTree) {
+                                        if ((init instanceof LiteralTree || init instanceof IdentifierTree)
+                                                && !trueVars.contains(n)) {
                                             repl.put(n, init);
                                             return asm.empty().get();
                                         } else {
@@ -298,6 +312,17 @@ class Inliner {
                                                 if (res != null) return asm.literal(res).get();
                                             }
                                             return asm.set(A, l).bin(kind, A, r).get(A);
+//                                        } else
+//                                        if (t instanceof CompoundAssignmentTree) {
+//                                            CompoundAssignmentTree c = (CompoundAssignmentTree) t;
+//                                            ExpressionTree l = copy(c.getVariable(), copier);
+//                                            ExpressionTree r = copy(c.getExpression(), copier);
+//                                            if (l instanceof LiteralTree && r instanceof LiteralTree) {
+//                                                Object res = Expressions.eval(
+//                                                        kind, ((LiteralTree) l).getValue(), ((LiteralTree) r).getValue());
+//                                                if (res != null) return asm.literal(res).get();
+//                                            }
+//                                            return asm.set(A, l).assign(kind, A, r).get(A);
                                         } else {
                                             return copier.copy(t);
                                         }
@@ -339,8 +364,9 @@ class Inliner {
                     Tree.Kind kind = node.getKind();
                     Extract extr = scan(node.getExpression(), null);
                     if (extr == null) {
-                        ExpressionTree arg = node.getExpression();
-                        if (arg instanceof LiteralTree) {
+                        ExpressionTree arg;
+                        if (JavacUtils.getAssignableVariable(node) == null
+                                && (arg = node.getExpression()) instanceof LiteralTree) {
                             Object res = Expressions.eval(kind, ((LiteralTree) arg).getValue());
                             if (res != null) {
                                 Editors.replaceTree(getCurrentPath(), asm.literal(res).get());

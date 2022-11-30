@@ -876,7 +876,7 @@ public class TreeAssembler {
 
 
     public TreeAssembler bin(Tree.Kind op, int lhsReg, int rhsReg) {
-        return bin(op, lhsReg, get(rhsReg, JCExpression.class));
+        return bin(op, lhsReg, get(rhsReg, ExpressionTree.class));
     }
 
 
@@ -885,6 +885,20 @@ public class TreeAssembler {
         JCExpression lhs = get(lhsReg, JCExpression.class);
         Tag tag = JavacUtils.kindToTag(op);
         set(lhsReg, M.Binary(tag, lhs, (JCExpression) rhs));
+        return this;
+    }
+
+
+    public TreeAssembler assign(Tree.Kind op, int varReg, int exprReg) {
+        return bin(op, varReg, get(exprReg, ExpressionTree.class));
+    }
+
+
+    public TreeAssembler assign(Tree.Kind op, int varReg, ExpressionTree expr) {
+        if (op.asInterface() != CompoundAssignmentTree.class) throw new IllegalArgumentException();
+        JCExpression lhs = get(varReg, JCExpression.class);
+        Tag tag = JavacUtils.kindToTag(op);
+        set(varReg, M.Assignop(tag, lhs, (JCExpression) expr));
         return this;
     }
 
