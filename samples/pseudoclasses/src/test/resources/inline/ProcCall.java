@@ -14,9 +14,18 @@ public class ProcCall {
     }
 
 
-//    void set1(int val) {
-//        int x = val * 3;
-//        ((IntAnatomy0) val).setByte(x, x = 2);
+    void set1(int val) {
+        int x = val * 3;
+        ((IntAnatomy0) val).setByte(x, x = 2);
+        System.out.println(x);
+        System.out.println(val);
+    }
+
+
+//    void set2(int val) {
+//        int z, y;
+//        IntAnatomy0 x;
+//        ((z = ((IntAnatomy0) val).getByte(0)) > 2 ? x : (IntAnatomy0) (y = 2)).setByte(1, z);
 //        System.out.println(x);
 //    }
 }

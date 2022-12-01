@@ -401,30 +401,30 @@ public class JavacUtils {
     }
 
 
-//    public static boolean isAssignment(Tree.Kind kind) {
-//        if (kind == null) return false;
-//        switch (kind) {
-//            case ASSIGNMENT:                      // =
-//            case PREFIX_INCREMENT:                // ++ _
-//            case PREFIX_DECREMENT:                // -- _
-//            case POSTFIX_INCREMENT:               // _ ++
-//            case POSTFIX_DECREMENT:               // _ --
-//            case MULTIPLY_ASSIGNMENT:             // *=
-//            case DIVIDE_ASSIGNMENT:               // /=
-//            case REMAINDER_ASSIGNMENT:            // %=
-//            case PLUS_ASSIGNMENT:                 // +=
-//            case MINUS_ASSIGNMENT:                // -=
-//            case LEFT_SHIFT_ASSIGNMENT:           // <<=
-//            case RIGHT_SHIFT_ASSIGNMENT:          // >>=
-//            case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT: // >>>=
-//            case AND_ASSIGNMENT:                  // &=
-//            case XOR_ASSIGNMENT:                  // ^=
-//            case OR_ASSIGNMENT:                   // |=
-//                return true;
-//            default:
-//                return false;
-//        }
-//    }
+    public static boolean isAssignment(Tree.Kind kind) {
+        if (kind == null) return false;
+        switch (kind) {
+            case ASSIGNMENT:                      // =
+            case PREFIX_INCREMENT:                // ++ _
+            case PREFIX_DECREMENT:                // -- _
+            case POSTFIX_INCREMENT:               // _ ++
+            case POSTFIX_DECREMENT:               // _ --
+            case MULTIPLY_ASSIGNMENT:             // *=
+            case DIVIDE_ASSIGNMENT:               // /=
+            case REMAINDER_ASSIGNMENT:            // %=
+            case PLUS_ASSIGNMENT:                 // +=
+            case MINUS_ASSIGNMENT:                // -=
+            case LEFT_SHIFT_ASSIGNMENT:           // <<=
+            case RIGHT_SHIFT_ASSIGNMENT:          // >>=
+            case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT: // >>>=
+            case AND_ASSIGNMENT:                  // &=
+            case XOR_ASSIGNMENT:                  // ^=
+            case OR_ASSIGNMENT:                   // |=
+                return true;
+            default:
+                return false;
+        }
+    }
 
 
     public static Name getAssignableVariable(Tree expr) {

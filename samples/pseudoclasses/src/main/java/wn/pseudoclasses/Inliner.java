@@ -192,16 +192,12 @@ class Inliner {
                         } else {
                             ret = asm.at(node).invoke(A, asm.copyOf(typeArgs), Arrays.asList(args)).get(A);
                         }
-                        return new Extract(ret, stmts);
+                        return new Extract(ret, stmts, false);
                     } else {
                         return super.visitMethodInvocation(node, null);
                     }
                 }
 
-
-                class VariableExpression {
-
-                }
 
                 /**
                  * Inject the body of a pseudo method
@@ -406,7 +402,15 @@ class Inliner {
                         }
                         return null;
                     } else {
-                        return new Extract(uno(kind, extr.expr), extr.stmts);
+                        boolean assign = JavacUtils.isAssignment(kind);
+                        if (assign) {
+                            if (!extr.assignable) {
+                                assign = false;
+                                helper.printError("variable expected",
+                                        new TreePath(getCurrentPath(), node.getExpression()));
+                            }
+                        }
+                        return new Extract(uno(kind, extr.expr), extr.stmts, assign);
                     }
                 }
 
@@ -435,7 +439,7 @@ class Inliner {
                     }
                     if (lExtr != null) {
                         ExpressionTree right = node.getRightOperand();
-                        if (rExtr == null) return new Extract(bin(kind, lExtr.expr, right), lExtr.stmts);
+                        if (rExtr == null) return new Extract(bin(kind, lExtr.expr, right), lExtr.stmts, false);
                         Statements stmts = lExtr.stmts;
                         switch (kind) {
                             case CONDITIONAL_AND:
@@ -454,7 +458,7 @@ class Inliner {
                                 return new Extract(var, stmts);
                             default:
                                 stmts.addAll(rExtr.stmts);
-                                return new Extract(bin(kind, lExtr.expr, rExtr.expr), stmts);
+                                return new Extract(bin(kind, lExtr.expr, rExtr.expr), stmts, false);
                         }
                     } else {
                         ExpressionTree left = node.getLeftOperand();
@@ -472,7 +476,7 @@ class Inliner {
                                 return new Extract(var, stmts);
                             default:
                                 stmts.addAll(rExtr.stmts);
-                                return new Extract(bin(kind, asm.identOf(var), rExtr.expr), stmts);
+                                return new Extract(bin(kind, asm.identOf(var), rExtr.expr), stmts, false);
                         }
                     }
                 }
@@ -496,11 +500,14 @@ class Inliner {
                     Tree type = node.getType();
                     Extension ext = extensions.get(helper.attributeType(new TreePath(path, type)));
                     if (ext != null) {
-                        scan(exploit.unmaskErroneousCasts(new TreePath(path, node.getExpression())), null);
                         ExpressionTree expr = node.getExpression();
+                        pseudos.suppressDiagnostics(CANNOT_CAST, expr);
+                        scan(exploit.unmaskErroneousCasts(new TreePath(path, expr)), null);
+                        TypeMirror exprType = helper.attributeExpr(new TreePath(path, expr = node.getExpression()));
                         TypeMirror replace = ext.wrappedType;
-                        if (types.isAssignable(helper.typeOf(path, expr), replace)) {
-                            pseudos.suppressDiagnostics(CANNOT_CAST, expr);
+                        if (exprType == replace) {
+                            Editors.replaceTree(path, expr);
+                        } else {
                             Editors.setType(node, asm.at(type).type(replace).asExpr());
                         }
                     } else {
@@ -689,15 +696,16 @@ class Inliner {
 
         final ExpressionTree expr;
         final Statements stmts;
+        final boolean assignable;
 
-        Extract(ExpressionTree expr, Statements stmts) {
+        Extract(ExpressionTree expr, Statements stmts, boolean assignable) {
             this.expr = expr;
             this.stmts = stmts;
+            this.assignable = assignable;
         }
 
         Extract(Name var, Statements stmts) {
-            this.expr = asm.identOf(var);
-            this.stmts = stmts;
+            this(asm.identOf(var), stmts, false);
         }
 
         @Override
