@@ -12,4 +12,11 @@ public class ProcCall {
     int get1(int val) {
         return ((IntAnatomy0) val).getByte(1);
     }
+
+
+//    void set1(int val) {
+//        int x = val * 3;
+//        ((IntAnatomy0) val).setByte(x, x = 2);
+//        System.out.println(x);
+//    }
 }

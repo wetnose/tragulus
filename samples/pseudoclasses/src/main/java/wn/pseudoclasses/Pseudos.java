@@ -1,5 +1,6 @@
 package wn.pseudoclasses;
 
+import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
@@ -15,6 +16,8 @@ import wn.tragulus.ProcessingHelper;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
@@ -29,6 +32,7 @@ import java.util.function.Predicate;
 
 import static com.sun.tools.javac.code.Flags.FINAL;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
+import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.util.Elements.Origin.MANDATED;
 import static wn.tragulus.JavacUtils.isPublic;
 import static wn.tragulus.JavacUtils.walkOver;
@@ -69,6 +73,9 @@ class Pseudos {
     final TypeMirror pseudoType;
     final TypeMirror overrideType;
 
+    final Element wrapperValue;
+    final Name    thisName;
+
 
     public Pseudos(ProcessingHelper helper) {
         this.helper   = helper;
@@ -82,6 +89,18 @@ class Pseudos {
         wrapperType   = helper.asType(wn.pseudoclasses.Wrapper.class);
         pseudoType    = helper.asType(wn.pseudoclasses.Pseudo.class);
         overrideType  = helper.asType(Override.class);
+
+        thisName = helper.getName("this");
+
+        TypeElement wrapper = helper.asElement(wrapperType);
+        Name value = helper.getName("value");
+        for (Element member : wrapper.getEnclosedElements()) {
+            if (member.getKind() == ElementKind.FIELD && member.getSimpleName() == value) {
+                wrapperValue = member;
+                return;
+            }
+        }
+        throw new AssertionError();
     }
 
 
@@ -324,6 +343,7 @@ class Pseudos {
         final TypeMirror wrappedType;
         final ArrayList<Method> constructors = new ArrayList<>();
         final ArrayList<Method> methods = new ArrayList<>();
+        final Set<ExecutableElement> constant = new HashSet<>();
 
         int status = ST_CREATED;
 
@@ -340,13 +360,14 @@ class Pseudos {
                     TreePath path = TreePath.getPath(this.path, member);
                     switch (member.getKind()) {
                         case METHOD:
-                            Element elem = helper.asElement(path);
+                            ExecutableElement elem = helper.asElement(path);
                             if (elem.getKind() == CONSTRUCTOR) {
                                 if (elements.getOrigin(elem) == MANDATED) break;
                                 constructors.add(new Method(path));
                             } else {
                                 methods.add(new Method(path));
                             }
+                            if (isConst(elem)) constant.add(elem); //todo inline invocations of other pseudo methods
                             break;
                         default:
                             helper.printError("unsupported declaration", path);
@@ -374,6 +395,22 @@ class Pseudos {
             }
             return status == ST_VALID;
         }
+
+        private boolean isConst(ExecutableElement elem) {
+            TreePath path = trees.getPath(elem);
+            BlockTree body = ((MethodTree) path.getLeaf()).getBody();
+            return null == JavacUtils.findFirst(body, t -> {
+                Tree var = JavacUtils.getAssignableExpression(t);
+                Element el;
+                return var != null && (el = trees.getElement(TreePath.getPath(path, var))) != null && isSelf(el);
+            });
+        }
+
+        boolean isConstant(ExecutableElement elem) {
+            return constant.contains(elem);
+        }
+
+        abstract boolean isSelf(Element element);
 
         @Override
         public String toString() {
@@ -405,6 +442,12 @@ class Pseudos {
             }
             return status == ST_INVALID;
         }
+
+        @Override
+        boolean isSelf(Element element) {
+            return element.getKind() == FIELD && element.getEnclosingElement() == elem
+                    && element.getSimpleName() == thisName;
+        }
     }
 
 
@@ -428,6 +471,11 @@ class Pseudos {
                 }
             }
             return status == ST_VALID;
+        }
+
+        @Override
+        boolean isSelf(Element element) {
+            return element == wrapperValue;
         }
     }
 

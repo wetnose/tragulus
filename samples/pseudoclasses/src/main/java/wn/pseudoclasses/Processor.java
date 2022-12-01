@@ -9,9 +9,7 @@ import wn.tragulus.BasicProcessor;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
 
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
-import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
@@ -32,20 +30,8 @@ import java.util.stream.Collectors;
  * Date: 21.04.2021
  * Time: 7:15 PM
  */
-@SupportedAnnotationTypes("*")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class Processor extends BasicProcessor {
-
-    @Override
-    public synchronized void init(ProcessingEnvironment processingEnv) {
-        super.init(processingEnv);
-    }
-
-
-    @Override
-    public Set<String> getSupportedOptions() {
-        return super.getSupportedOptions();
-    }
 
 
     @Override

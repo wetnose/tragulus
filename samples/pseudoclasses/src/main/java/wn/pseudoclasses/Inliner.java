@@ -12,11 +12,8 @@ import wn.tragulus.ProcessingHelper;
 import wn.tragulus.TreeAssembler;
 import wn.tragulus.TreeAssembler.Copier;
 
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Name;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
@@ -49,8 +46,6 @@ class Inliner {
 
     final TreeAssembler asm;
 
-    final Element wrapperValue;
-
 
     public Inliner(Pseudos pseudos) {
         ProcessingHelper helper = pseudos.helper;
@@ -58,16 +53,6 @@ class Inliner {
         this.trees     = pseudos.trees;
         this.types     = pseudos.types;
         this.asm       = helper.newAssembler(4);
-
-        TypeElement wrapper = helper.asElement(pseudos.wrapperType);
-        Name value = asm.toName("value");
-        for (Element member : wrapper.getEnclosedElements()) {
-            if (member.getKind() == ElementKind.FIELD && member.getSimpleName() == value) {
-                wrapperValue = member;
-                return;
-            }
-        }
-        throw new AssertionError();
     }
 
 
@@ -161,14 +146,17 @@ class Inliner {
                     }
                     args = node.getArguments().toArray(new ExpressionTree[0]); // could be evaluated
                     if (selExtr != null || extrCount != 0 || ext != null) {
+                        MethodInjector mthd = extrCount == 0 && ext == null ? null : new MethodInjector(ext, elem);
                         Statements stmts = new Statements();
                         if (selExtr != null) {
                             stmts.addAll(selExtr.stmts);
                             asm.set(A, selExtr.expr);
-                        } else {
+                        } else
+                        //if (mthd.isConst()) {
                             asm.set(A, node.getMethodSelect());
-                        }
-                        MethodInjector mthd = extrCount == 0 && ext == null ? null : new MethodInjector(elem);
+                        //} else {
+
+                        //}
                         for (int i=0; i < argCount; i++) {
                             ExpressionTree arg = args[i];
                             if (extrCount == 0 && ext == null) {
@@ -211,14 +199,27 @@ class Inliner {
                 }
 
 
+                class VariableExpression {
+
+                }
+
+                /**
+                 * Inject the body of a pseudo method
+                 */
                 class MethodInjector {
 
+                    final Extension         ext;
                     final ExecutableElement elem;
                     final VariableElement[] params;
 
-                     MethodInjector(ExecutableElement elem) {
+                     MethodInjector(Extension ext, ExecutableElement elem) {
+                        this.ext = ext;
                         this.elem = elem;
                         this.params = elem.getParameters().toArray(new VariableElement[0]);
+                    }
+
+                    boolean isConst() {
+                         return ext.isConstant(elem);
                     }
 
                     ExpressionTree inline(Tree pos, ExpressionTree self, ExpressionTree[] args, Statements stmts) {
@@ -281,7 +282,7 @@ class Inliner {
                                         return asm.copyOf(repl.get(((IdentifierTree) t).getName()));
                                     }
                                     case MEMBER_SELECT: {
-                                        if (JavacUtils.asElement(t) == wrapperValue) return asm.copyOf(self);
+                                        if (ext.isSelf(JavacUtils.asElement(t))) return asm.copyOf(self);
                                         return copier.copy(t);
                                     }
                                     case RETURN: {
