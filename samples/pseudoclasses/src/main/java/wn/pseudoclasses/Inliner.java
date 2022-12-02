@@ -171,7 +171,6 @@ class Inliner {
                             select = ((MemberSelectTree) selExtr.expr).getExpression();
                             self = stmts.addDecl(select, ext.wrappedType, names, "self", select);
                             if (!mthd.isConst()) {
-                                //todo check the position
                                 helper.printError("not assignable", new TreePath(path, select));
                             }
                         } else {
@@ -180,12 +179,13 @@ class Inliner {
                     } else
                     if (mthd != null) {
                         if (select instanceof IdentifierTree) {
-                            //todo support this correctly
-                            self = pseudos.wrapperValue.getSimpleName();
-                            if (!mthd.isConst()) tgt = asm.identOf(self);
+                            helper.printError("such invocations are not supported yet", new TreePath(path, select));
+//                            //todo support this correctly
+//                            self = pseudos.wrapperValue.getSimpleName();
+//                            if (!mthd.isConst()) tgt = asm.identOf(self);
                         } else {
                             select = ((MemberSelectTree) select).getExpression();
-                            if (select instanceof IdentifierTree && JavacUtils.isLocal(JavacUtils.asElement(select))) {
+                            if (select instanceof IdentifierTree) {
                                 self = ((IdentifierTree) select).getName();
                             } else {
                                 self = stmts.addDecl(select, ext.wrappedType, names, "self", select);
@@ -194,7 +194,6 @@ class Inliner {
                                     if (isAssignable(select)) {
                                         tgt = select;
                                     } else {
-                                        //todo check the position
                                         helper.printError("not assignable", new TreePath(path, select));
                                     }
                                 }
