@@ -36,6 +36,7 @@ import java.util.Collection;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static com.sun.tools.javac.code.Flags.FINAL;
 import static com.sun.tools.javac.code.Flags.PUBLIC;
 import static com.sun.tools.javac.tree.JCTree.Tag.TYPEBOUNDKIND;
 import static java.util.Collections.singletonList;
@@ -195,6 +196,11 @@ public class JavacUtils {
 
     public static boolean isPublic(Element element) {
         return (((Symbol) element).flags() & PUBLIC) != 0;
+    }
+
+
+    public static boolean isFinal(Element element) {
+        return (((Symbol) element).flags() & FINAL) != 0;
     }
 
 

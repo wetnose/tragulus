@@ -900,12 +900,18 @@ public class TreeAssembler {
     }
 
 
+    public TreeAssembler assign(Tree.Kind op, ExpressionTree expr) {
+        return assign(op, 0, expr);
+    }
+
+
     public TreeAssembler assign(Tree.Kind op, int varReg, int exprReg) {
         return bin(op, varReg, get(exprReg, ExpressionTree.class));
     }
 
 
     public TreeAssembler assign(Tree.Kind op, int varReg, ExpressionTree expr) {
+        if (op == Tree.Kind.ASSIGNMENT) return assign(varReg, expr);
         if (op.asInterface() != CompoundAssignmentTree.class) throw new IllegalArgumentException();
         JCExpression lhs = get(varReg, JCExpression.class);
         Tag tag = JavacUtils.kindToTag(op);
