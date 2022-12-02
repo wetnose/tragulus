@@ -120,11 +120,19 @@ class Inliner {
 
 
                 @Override
+                public Extract visitMemberSelect(MemberSelectTree node, Void unused) {
+                    Extract extr = scan(node.getExpression(), null);
+                    if (extr == null) return null;
+                    return new Extract(extr.stmts, asm.at(node).set(extr.expr).select(node.getIdentifier()).asExpr());
+                }
+
+
+                @Override
                 public Extract visitMethodInvocation(MethodInvocationTree node, Void unused) {
                     TreePath path = getCurrentPath();
                     Extract selExtr = scan(node.getMethodSelect(), null);
-                    ExecutableElement elem = (ExecutableElement) trees
-                            .getElement(new TreePath(path, node.getMethodSelect()));
+                    ExpressionTree select = node.getMethodSelect();
+                    ExecutableElement elem = (ExecutableElement) trees.getElement(new TreePath(path, select));
                     Extension ext = extensions.get(elem.getEnclosingElement().asType());
                     if (ext != null && !(ext instanceof Pseudos.Wrapper)) {
                         ext = null;
@@ -144,56 +152,94 @@ class Inliner {
                         }
                     }
                     args = node.getArguments().toArray(new ExpressionTree[0]); // could be evaluated
-                    if (selExtr != null || extrCount != 0 || ext != null) {
-                        MethodInjector mthd = ext == null ? null : new MethodInjector(ext, elem);
-                        Statements stmts = new Statements();
-                        if (selExtr != null) {
-                            stmts.addAll(selExtr.stmts);
-                            asm.set(A, selExtr.expr);
-                        } else
-                        //if (mthd.isConst()) {
-                            asm.set(A, node.getMethodSelect());
-                        //} else {
-
-                        //}
-                        for (int i=0; i < argCount; i++) {
-                            ExpressionTree arg = args[i];
-                            if (extrCount == 0 && ext == null) {
-                                args[i] = asm.copyOf(arg);
-                                continue;
-                            }
-                            Extract extr = argExtr[i];
-                            ExpressionTree expr;
-                            if (extr != null) {
-                                extrCount--;
-                                stmts.addAll(extr.stmts);
-                                expr = extr.expr;
-                            } else {
-                                expr = null;
-                            }
-                            if (!(expr instanceof IdentifierTree) && !(expr instanceof LiteralTree)) {
-                                if (arg instanceof LiteralTree) {
-                                    args[i] = arg;
-                                } else {
-                                    TypeMirror type = mthd.params[i].asType();
-                                    if (expr == null) expr = asm.copyOf(arg);
-                                    Name var = stmts.addDecl(arg, type, names, "var", expr);
-                                    args[i] = asm.identOf(var);
-                                }
-                            } else {
-                                args[i] = expr;
-                            }
-                        }
-                        ExpressionTree ret;
-                        if (mthd != null) {
-                            ret = mthd.inline(node, ((MemberSelectTree) asm.get(A)).getExpression(), args, stmts);
-                        } else {
-                            ret = asm.at(node).invoke(A, asm.copyOf(typeArgs), Arrays.asList(args)).get(A);
-                        }
-                        return new Extract(stmts, ret);
+                    if (selExtr == null && extrCount == 0 && ext == null) return null;
+                    Name self = null;
+                    ExpressionTree tgt = null;
+                    MethodInjector mthd;
+                    VariableElement[] params;
+                    if (ext != null) {
+                        mthd = new MethodInjector(ext, elem);
+                        params = mthd.params;
                     } else {
-                        return super.visitMethodInvocation(node, null);
+                        mthd = null;
+                        params = elem.getParameters().toArray(new VariableElement[0]);
                     }
+                    Statements stmts = new Statements();
+                    if (selExtr != null) {
+                        stmts.addAll(selExtr.stmts);
+                        if (mthd != null) {
+                            select = ((MemberSelectTree) selExtr.expr).getExpression();
+                            self = stmts.addDecl(select, ext.wrappedType, names, "self", select);
+                            if (!mthd.isConst()) {
+                                //todo check the position
+                                helper.printError("not assignable", new TreePath(path, select));
+                            }
+                        } else {
+                            asm.set(A, selExtr.expr);
+                        }
+                    } else
+                    if (mthd != null) {
+                        if (select instanceof IdentifierTree) {
+                            //todo support this correctly
+                            self = pseudos.wrapperValue.getSimpleName();
+                            if (!mthd.isConst()) tgt = asm.identOf(self);
+                        } else {
+                            select = ((MemberSelectTree) select).getExpression();
+                            if (select instanceof IdentifierTree && JavacUtils.isLocal(JavacUtils.asElement(select))) {
+                                self = ((IdentifierTree) select).getName();
+                            } else {
+                                self = stmts.addDecl(select, ext.wrappedType, names, "self", select);
+                                if (!mthd.isConst()) {
+                                    select = peelExpr(select);
+                                    if (isAssignable(select)) {
+                                        tgt = select;
+                                    } else {
+                                        //todo check the position
+                                        helper.printError("not assignable", new TreePath(path, select));
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        asm.set(A, select);
+                    }
+                    for (int i=0; i < argCount; i++) {
+                        ExpressionTree arg = args[i];
+                        if (extrCount == 0 && ext == null) {
+                            args[i] = asm.copyOf(arg);
+                            continue;
+                        }
+                        Extract extr = argExtr[i];
+                        ExpressionTree expr;
+                        if (extr != null) {
+                            extrCount--;
+                            stmts.addAll(extr.stmts);
+                            expr = extr.expr;
+                        } else {
+                            expr = null;
+                        }
+                        if (!(expr instanceof IdentifierTree) && !(expr instanceof LiteralTree)) {
+                            if (arg instanceof LiteralTree) {
+                                args[i] = arg;
+                            } else {
+                                TypeMirror type = params[i].asType();
+                                if (expr == null) expr = asm.copyOf(arg);
+                                Name var = stmts.addDecl(arg, type, names, "var", expr);
+                                args[i] = asm.identOf(var);
+                            }
+                        } else {
+                            args[i] = expr;
+                        }
+                    }
+                    ExpressionTree ret;
+                    if (mthd != null) {
+                        assert self != null;
+                        ret = mthd.inline(node, asm.identOf(self), args, stmts);
+                        if (tgt != null) stmts.addAssign(node, tgt, asm.at(node).identOf(self));
+                    } else {
+                        ret = asm.at(node).invoke(A, asm.copyOf(typeArgs), Arrays.asList(args)).get(A);
+                    }
+                    return new Extract(stmts, ret);
                 }
 
 
@@ -581,9 +627,26 @@ class Inliner {
         // Routines
 
 
+        ExpressionTree peelExpr(ExpressionTree expr) {
+            return expr instanceof ParenthesizedTree ? peelExpr(((ParenthesizedTree) expr).getExpression()) : expr;
+        }
+
+        boolean isAssignable(ExpressionTree expr) {
+            expr = peelExpr(expr);
+            switch (peelExpr(expr).getKind()) {
+                case IDENTIFIER:
+                case MEMBER_SELECT:
+                case ARRAY_ACCESS:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Fraud
+
 
         void maskErroneousCasts(TreePath path) {
             new TreePathScanner<Void,Void>() {
@@ -635,6 +698,11 @@ class Inliner {
         void addAssign(Tree pos, Name var, ExpressionTree expr) {
             if (pos != null) asm.at(pos);
             add(asm.ident(V, var).assign(V, expr).asStat(V));
+        }
+
+        void addAssign(Tree pos, ExpressionTree lhs, ExpressionTree rhs) {
+            if (pos != null) asm.at(pos);
+            add(asm.set(V, lhs).assign(V, rhs).asStat(V));
         }
     }
 

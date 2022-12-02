@@ -204,6 +204,11 @@ public class JavacUtils {
     }
 
 
+    public static boolean isLocal(Element element) {
+        return ((Symbol) element).isLocal();
+    }
+
+
     public static Tree findFirst(Tree root, Predicate<Tree> predicate) {
         if (root == null || predicate == null) return null;
         return root.accept(new TreeScanner<Tree,Void>() {
