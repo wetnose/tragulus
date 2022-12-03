@@ -5,6 +5,7 @@ import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import wn.pseudoclasses.Pseudos.Extension;
+import wn.pseudoclasses.Pseudos.Method;
 import wn.pseudoclasses.Pseudos.PseudoType;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
@@ -12,6 +13,7 @@ import wn.tragulus.ProcessingHelper;
 import wn.tragulus.TreeAssembler;
 import wn.tragulus.TreeAssembler.Copier;
 
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.VariableElement;
@@ -22,11 +24,15 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 
 import static wn.pseudoclasses.Pseudos.Err.CANNOT_CAST;
 
@@ -61,9 +67,35 @@ class Inliner {
         pseudotypes.stream()
                 .flatMap(t -> t.units.stream())
                 .distinct()
-                .forEach(processor::process);
+                .forEach(unit -> processor.process(new TreePath(unit)));
     }
 
+
+    static String toFullName(Element method) {
+        return method.getEnclosingElement() + "." + method;
+    }
+
+
+    private static class MethodDesc {
+        final Method mthd;
+        final HashSet<Dep> deps = new HashSet<>();
+        MethodDesc(Method mthd) {
+            this.mthd = mthd;
+        }
+        @Override
+        public String toString() {
+            return toFullName(mthd.elem);
+        }
+    }
+
+    private static class Dep {
+        final MethodDesc desc;
+        final TreePath path;
+        Dep(MethodDesc desc, TreePath path) {
+            this.desc = desc;
+            this.path = path;
+        }
+    }
 
 
     private class UnitProcessor {
@@ -71,28 +103,85 @@ class Inliner {
         final ProcessingHelper helper = pseudos.helper;
         final Map<TypeMirror,Extension> extensions;
 
+
         UnitProcessor(Collection<PseudoType> pseudotypes) {
             extensions = pseudotypes.stream()
                     .filter(t -> t instanceof Extension)
                     .collect(Collectors.toMap(t -> t.elem.asType(), t -> (Extension) t));
+
+            HashMap<String,MethodDesc> methods = new HashMap<>();
+            extensions.values().stream()
+                    .flatMap(e -> Stream.concat(e.constructors.stream(), e.methods.stream()))
+                    .forEach(m -> methods.put(toFullName(m.elem), new MethodDesc(m)));
+
+            TreePathScanner<Void,MethodDesc> dependencyCollector = new TreePathScanner<>() {
+                @Override
+                public Void visitMethodInvocation(MethodInvocationTree node, MethodDesc desc) {
+                    TreePath path = new TreePath(getCurrentPath(), node.getMethodSelect());
+                    Element elem = trees.getElement(path);
+                    MethodDesc dep = methods.get(toFullName(elem));
+                    if (dep != null) desc.deps.add(new Dep(dep, path));
+                    return super.visitMethodInvocation(node, desc);
+                }
+            };
+
+            methods.values().forEach(desc -> dependencyCollector.scan(desc.mthd.path, desc));
+
+            LinkedHashSet<MethodDesc> ordered = new LinkedHashSet<>(methods.size());
+            LinkedList<MethodDesc> queue = new LinkedList<>();
+            HashSet<MethodDesc> passed = new HashSet<>();
+            methods.values().forEach(d -> {
+                if (!passed.add(d)) return;
+                queue.add(d);
+                MethodDesc desc;
+                while ((desc = queue.peek()) != null) {
+                    boolean added = false;
+                    for (Dep dep : desc.deps) {
+                        MethodDesc dd = dep.desc;
+                        if (ordered.contains(dd)) continue;
+                        if (passed.add(dd)) {
+                            queue.addFirst(dd);
+                            added = true;
+                        } else {
+                            helper.printError("prohibited recursion", dep.path);
+                        }
+                    }
+                    if (added) continue;
+                    ordered.add(queue.poll());
+                }
+            });
+
+            for (MethodDesc desc : ordered) {
+                if (desc.deps.isEmpty()) continue;
+                process(desc.mthd.path);
+            }
         }
+
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Unit processing
 
-        void process(CompilationUnitTree unit) {
+        void process(TreePath root) {
 
-            Names names = new Names(unit);
-            maskErroneousCasts(new TreePath(unit));
+            Names names = new Names(root.getLeaf());
+            maskErroneousCasts(root);
 
             new TreePathScanner<Extract, Void>() {
 
                 @Override
                 public Extract reduce(Extract r1, Extract r2) {
                     if (r1 != null || r2 != null) {
-                        helper.printError("internal error", getCurrentPath());
+                        helper.printError("internal error #1", getCurrentPath());
                     }
                     return null;
+                }
+
+
+                @Override
+                public Extract visitClass(ClassTree node, Void unused) {
+                    TypeMirror type = JavacUtils.typeOf(node);
+                    if (extensions.containsKey(type)) return null;
+                    return super.visitClass(node, unused);
                 }
 
 
@@ -106,8 +195,9 @@ class Inliner {
                     if (expr != null) {
                         if (JavacUtils.isStatementExpression(expr)) {
                             stmts.add(asm.set(extr.expr).exec().get());
-//                        } else if (expr.getKind() != Tree.Kind.IDENTIFIER) {
-//                            throw new AssertionError();
+                        } else if (expr.getKind() != Tree.Kind.IDENTIFIER) {
+                            helper.printError("internal error #2", new TreePath(getCurrentPath(), expr));
+                            throw new AssertionError();
                         }
                     }
                     if (stmts.size() == 1) {
@@ -153,8 +243,7 @@ class Inliner {
                     }
                     args = node.getArguments().toArray(new ExpressionTree[0]); // could be evaluated
                     if (selExtr == null && extrCount == 0 && ext == null) return null;
-                    Name self = null;
-                    ExpressionTree tgt = null;
+                    ExpressionTree self = null;
                     MethodInjector mthd;
                     VariableElement[] params;
                     if (ext != null) {
@@ -169,7 +258,7 @@ class Inliner {
                         stmts.addAll(selExtr.stmts);
                         if (mthd != null) {
                             select = ((MemberSelectTree) selExtr.expr).getExpression();
-                            self = stmts.addDecl(select, ext.wrappedType, names, "self", select);
+                            self = asm.identOf(stmts.addDecl(select, ext.wrappedType, names, "self", select));
                             if (!mthd.isConst()) {
                                 helper.printError("not assignable", new TreePath(path, select));
                             }
@@ -179,21 +268,25 @@ class Inliner {
                     } else
                     if (mthd != null) {
                         if (select instanceof IdentifierTree) {
-                            helper.printError("such invocations are not supported yet", new TreePath(path, select));
-//                            //todo support this correctly
-//                            self = pseudos.wrapperValue.getSimpleName();
-//                            if (!mthd.isConst()) tgt = asm.identOf(self);
+                            TreePath classPath = JavacUtils.getEnclosingClass(getCurrentPath());
+                            TypeMirror type = elem.getEnclosingElement().asType();
+                            if (JavacUtils.typeOf(classPath.getLeaf()) == type) {
+                                self = asm.at(select).identOf(pseudos.wrapperValue.getSimpleName());
+                            } else {
+                                self = asm.at(select)
+                                        .ident(elem.getEnclosingElement().getSimpleName())
+                                        .select(pseudos.thisName)
+                                        .select(pseudos.wrapperValue.getSimpleName()).get();
+                            }
                         } else {
                             select = ((MemberSelectTree) select).getExpression();
                             if (select instanceof IdentifierTree) {
-                                self = ((IdentifierTree) select).getName();
+                                self = asm.at(select).identOf(((IdentifierTree) select).getName());
                             } else {
-                                self = stmts.addDecl(select, ext.wrappedType, names, "self", select);
+                                self = asm.identOf(stmts.addDecl(select, ext.wrappedType, names, "self", select));
                                 if (!mthd.isConst()) {
                                     select = peelExpr(select);
-                                    if (isAssignable(select)) {
-                                        tgt = select;
-                                    } else {
+                                    if (!isAssignable(select)) {
                                         helper.printError("not assignable", new TreePath(path, select));
                                     }
                                 }
@@ -233,8 +326,7 @@ class Inliner {
                     ExpressionTree ret;
                     if (mthd != null) {
                         assert self != null;
-                        ret = mthd.inline(node, asm.identOf(self), args, stmts);
-                        if (tgt != null) stmts.addAssign(node, tgt, asm.at(node).identOf(self));
+                        ret = mthd.inline(node, self, args, stmts);
                     } else {
                         ret = asm.at(node).invoke(A, asm.copyOf(typeArgs), Arrays.asList(args)).get(A);
                     }
@@ -318,7 +410,16 @@ class Inliner {
                                         }
                                     }
                                     case IDENTIFIER: {
-                                        return asm.copyOf(repl.get(((IdentifierTree) t).getName()));
+                                        Name name = ((IdentifierTree) t).getName();
+                                        if (name == pseudos.wrapperValue.getSimpleName()) {
+                                            Element e = JavacUtils.asElement(t);
+                                            if (e == null) {
+                                                helper.attributeExpr(TreePath.getPath(ext.path, t));
+                                                e = JavacUtils.asElement(t);
+                                            }
+                                            if (ext.isSelf(e)) return asm.copyOf(self);
+                                        }
+                                        return asm.copyOf(repl.get(name));
                                     }
                                     case MEMBER_SELECT: {
                                         if (ext.isSelf(JavacUtils.asElement(t))) return asm.copyOf(self);
@@ -615,9 +716,9 @@ class Inliner {
                     }
                 }
 
-            }.scan(unit, null);
+            }.scan(root, null);
 
-            System.out.println(unit);
+            System.out.println(root.getLeaf());
             System.out.println(names);
         }
 

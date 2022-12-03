@@ -251,6 +251,7 @@ public class TreeAssembler {
             }
             @Override
             public <X extends JCTree> X copy(X tree, Copier nil) {
+                if (tree == null) return null;
                 //noinspection unchecked
                 X cpy = (X) hook.apply(tree, this::copier);
                 return cpy != null ? cpy : super.copy(tree, null);

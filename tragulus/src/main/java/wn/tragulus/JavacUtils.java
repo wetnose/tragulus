@@ -155,6 +155,11 @@ public class JavacUtils {
     }
 
 
+    public static TreePath getEnclosingClass(TreePath path) {
+        return getEnclosingTree(path, node -> node.getKind() == Tree.Kind.CLASS);
+    }
+
+
     public static TreePath getEnclosingBlock(TreePath path) {
         return getEnclosingTree(path, node -> node.getKind() == Tree.Kind.BLOCK);
     }
@@ -206,6 +211,11 @@ public class JavacUtils {
 
     public static boolean isLocal(Element element) {
         return ((Symbol) element).isLocal();
+    }
+
+
+    public static boolean isStatic(Element element) {
+        return ((Symbol) element).isStatic();
     }
 
 

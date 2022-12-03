@@ -23,6 +23,10 @@ public final class IntAnatomy0 extends Wrapper<int> {
 //        return value >>> 16;
 //    }
 
+    void incByte(int index) {
+        setByte(index, getByte(index) + 1);
+    }
+
     int getByte(int index) {
         System.out.printf("index = " + index++);
         return this.value >> (index << 3) & 0xff;

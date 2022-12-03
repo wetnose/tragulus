@@ -35,6 +35,7 @@ import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
 import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.util.Elements.Origin.MANDATED;
 import static wn.tragulus.JavacUtils.isPublic;
+import static wn.tragulus.JavacUtils.isStatic;
 import static wn.tragulus.JavacUtils.walkOver;
 
 /**
@@ -196,6 +197,10 @@ class Pseudos {
                                 break;
                             default:
                                 break accessCheck;
+                        }
+                        if (member && isStatic(element)) {
+                            helper.printError("static members not supported", path);
+                            break accessCheck;
                         }
                         if (pub) {
                             if (isPublic(element)) break accessCheck;
@@ -363,9 +368,9 @@ class Pseudos {
                             ExecutableElement elem = helper.asElement(path);
                             if (elem.getKind() == CONSTRUCTOR) {
                                 if (elements.getOrigin(elem) == MANDATED) break;
-                                constructors.add(new Method(path));
+                                constructors.add(new Method(this, path));
                             } else {
-                                methods.add(new Method(path));
+                                methods.add(new Method(this, path));
                             }
                             if (isConst(elem)) constant.add(elem); //todo inline invocations of other pseudo methods
                             break;
@@ -482,10 +487,14 @@ class Pseudos {
 
     class Method {
 
+        final Extension ext;
         final TreePath path;
+        final ExecutableElement elem;
 
-        Method(TreePath path) {
+        Method(Extension ext, TreePath path) {
+            this.ext  = ext;
             this.path = path;
+            this.elem = helper.asElement(path);
         }
     }
 }

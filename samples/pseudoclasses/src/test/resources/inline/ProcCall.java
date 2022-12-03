@@ -9,6 +9,12 @@ public class ProcCall {
     }
 
 
+    int inc1(int val) {
+        ((IntAnatomy0) val).incByte(1);
+        return val;
+    }
+
+
     int get1(int val) {
         return ((IntAnatomy0) val).getByte(1);
     }
