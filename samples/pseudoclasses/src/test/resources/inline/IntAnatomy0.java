@@ -58,4 +58,10 @@ public final class IntAnatomy0 extends Wrapper<int> {
 //        }
 //        return new String(s, StandardCharsets.US_ASCII);
 //    }
+
+
+    @Pseudo
+    static final class XX {
+
+    }
 }

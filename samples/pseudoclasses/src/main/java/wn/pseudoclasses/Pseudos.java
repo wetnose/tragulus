@@ -166,6 +166,9 @@ class Pseudos {
         boolean pub = isPublic(type.elem);
         Scope scope = trees.getScope(type.path);
         TypeMirror tm = type.elem.asType();
+//        if (JavacUtils.hasOuterInstance(type.elem)) {
+//            helper.printError("unsupported nested pseudo class", type.path);
+//        }
         walkOver(type.path, walker -> {
             TreePath path = walker.path();
             Tree node = path.getLeaf();
@@ -242,12 +245,15 @@ class Pseudos {
         ClassSymbol type = helper.asElement(path);
         JavacUtils.scan(leaf, tree -> {
             ClassSymbol t;
+            TreePath tp;
             if (tree.getKind().asInterface() != ClassTree.class) return;
-            if (isMarkedAsPseudo(t = helper.asElement(TreePath.getPath(path, tree)))) {
+            if (isMarkedAsPseudo(t = helper.asElement(tp = TreePath.getPath(path, tree)))) {
                 if (t.isLocal()) {
-                    helper.printError("local pseudoclasses not supported", path);
-                } else {
-                    helper.printError("nested pseudoclasses not supported", path);
+                    helper.printError("local pseudoclasses not supported", tp);
+                } else
+                //if (JavacUtils.hasOuterInstance(t)) {
+                if (!JavacUtils.isStatic(t)) {
+                    helper.printError("'static' modifier expected", tp);
                 }
             }
         });
@@ -364,7 +370,7 @@ class Pseudos {
                 for (Tree member : classTree.getMembers()) {
                     TreePath path = TreePath.getPath(this.path, member);
                     switch (member.getKind()) {
-                        case METHOD:
+                        case METHOD: {
                             ExecutableElement elem = helper.asElement(path);
                             if (elem.getKind() == CONSTRUCTOR) {
                                 if (elements.getOrigin(elem) == MANDATED) break;
@@ -374,6 +380,11 @@ class Pseudos {
                             }
                             if (isConst(elem)) constant.add(elem); //todo inline invocations of other pseudo methods
                             break;
+                        }
+                        case CLASS: {
+                            TypeElement elem = helper.asElement(path);
+                            if (isMarkedAsPseudo(elem) && !JavacUtils.hasOuterInstance(elem)) break;
+                        }
                         default:
                             helper.printError("unsupported declaration", path);
                             status = ST_INVALID;
