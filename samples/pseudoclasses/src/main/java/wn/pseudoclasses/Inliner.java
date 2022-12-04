@@ -454,11 +454,18 @@ class Inliner {
                                             ExpressionTree a = u.getExpression();
                                             a = copy(a, copier);
                                             if (a instanceof LiteralTree) {
-                                                Object res = Expressions.eval(kind, ((LiteralTree) a).getValue());
+                                                Object val = ((LiteralTree) a).getValue();
+                                                Object res = Expressions.eval(kind, val);
                                                 if (res != null) {
                                                     t = asm.literal(res).get();
                                                     if (n != null) repl.replace(n, t);
-                                                    return t;
+                                                    switch (kind) {
+                                                        case POSTFIX_INCREMENT:
+                                                        case POSTFIX_DECREMENT:
+                                                            return a;
+                                                        default:
+                                                            return t;
+                                                    }
                                                 }
                                             }
                                             return asm.uno(kind, A, a).get(A);

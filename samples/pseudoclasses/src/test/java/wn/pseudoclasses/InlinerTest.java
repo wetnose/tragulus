@@ -60,6 +60,26 @@ public class InlinerTest extends PseudoTest {
         //System.out.println(sc.get("ProcCall"));
     }
 
+    @Test
+    public void prefixIncDec() throws Exception {
+        SourceCollector sc = new SourceCollector("PrefixIncDec");
+        Assertions.assertTrue( compile(new Processor(sc), "PrefixIncDec", "IntAnatomy1") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("PrefixIncDec", out);
+        Assertions.assertEquals("index = 2/1\n35", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("PrefixIncDec-patched")), norm(sc.get("PrefixIncDec")));
+    }
+
+    @Test
+    public void postfixIncDec() throws Exception {
+        SourceCollector sc = new SourceCollector("PostfixIncDec");
+        Assertions.assertTrue( compile(new Processor(sc), "PostfixIncDec", "IntAnatomy1") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("PostfixIncDec", out);
+        Assertions.assertEquals("index = 1/2\n35", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("PostfixIncDec-patched")), norm(sc.get("PostfixIncDec")));
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //
