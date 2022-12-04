@@ -746,8 +746,11 @@ class Inliner {
 
             }.scan(root, null);
 
-            System.out.println(root.getLeaf());
-            System.out.println(names);
+            if (pseudos.listener != null)
+                pseudos.listener.accept(root.getLeaf());
+
+//            System.out.println(root.getLeaf());
+//            System.out.println(names);
         }
 
 

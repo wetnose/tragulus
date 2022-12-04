@@ -28,6 +28,7 @@ import javax.tools.JavaFileObject;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.sun.tools.javac.code.Flags.FINAL;
@@ -62,6 +63,8 @@ class Pseudos {
     }
 
 
+    final Consumer<Tree> listener;
+
     final ProcessingHelper helper;
     final Trees            trees;
     final Types            types;
@@ -78,7 +81,9 @@ class Pseudos {
     final Name    thisName;
 
 
-    public Pseudos(ProcessingHelper helper) {
+    public Pseudos(ProcessingHelper helper, Consumer<Tree> listener) {
+        this.listener = listener;
+
         this.helper   = helper;
         this.trees    = helper.getTreeUtils();
         this.types    = helper.getTypeUtils();

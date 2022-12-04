@@ -10,6 +10,8 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -36,6 +38,16 @@ abstract class PseudoTest {
         try {
             URL url = ClassLoader.getSystemResource(target + ".java");
             return new File(url.toURI());
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
+
+    protected String contentOf(String target) {
+        File file = fileOf(target);
+        try {
+            return Files.readString(file.toPath(), StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new AssertionError(e);
         }

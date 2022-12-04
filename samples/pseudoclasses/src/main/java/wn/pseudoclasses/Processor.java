@@ -1,5 +1,6 @@
 package wn.pseudoclasses;
 
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
@@ -34,12 +35,33 @@ import java.util.stream.Collectors;
 public class Processor extends BasicProcessor {
 
 
+    final Listener listener;
+
+
+    public Processor() {
+        this(null);
+    }
+
+
+    public Processor(Listener listener) {
+        this.listener = listener;
+    }
+
+
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment env) {
 
         if (env.getRootElements().isEmpty()) return false;
 
-        Pseudos pseudos = new Pseudos(helper);
+        Pseudos pseudos = new Pseudos(helper, listener == null ? null : tree -> {
+            JavacUtils.scan(tree, t -> {
+                if (t.getKind() == Tree.Kind.CLASS) {
+                    ClassTree clazz = (ClassTree) t;
+                    listener.onInlined(clazz.getSimpleName().toString(), clazz.toString());
+                }
+            });
+        });
+
         ArrayList<PseudoType> pseudotypes = new ArrayList<>();
 
         for (Element element : env.getRootElements()) {
@@ -103,5 +125,10 @@ public class Processor extends BasicProcessor {
         });
 
         return false;
+    }
+
+
+    interface Listener {
+        void onInlined(String className, String patchedSrc);
     }
 }
