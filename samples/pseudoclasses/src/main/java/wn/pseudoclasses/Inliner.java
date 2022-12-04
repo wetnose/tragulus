@@ -214,8 +214,7 @@ class Inliner {
                 public Extract visitMemberSelect(MemberSelectTree node, Void unused) {
                     Extract extr = scan(node.getExpression(), null);
                     if (extr == null) return null;
-                    return new Extract(extr.stmts,
-                            asm.at(node).set(extr.expr).select(node.getIdentifier()).asExpr(), true);
+                    return new Extract(extr.stmts, asm.at(node).set(extr.expr).select(node.getIdentifier()).asExpr());
                 }
 
 
@@ -267,18 +266,6 @@ class Inliner {
                     if (selExtr != null) {
                         stmts.addAll(selExtr.stmts);
                         select = selExtr.expr;
-                        if (mthd != null && !mthd.isConst()) {
-                            if (!selExtr.assignable) {
-                                helper.printError("not assignable", new TreePath(path, select));
-                            }
-                            ExpressionTree expr = ((MemberSelectTree) select).getExpression();
-                            ExpressionTree var = JavacUtils.getAssignableExpression(expr);
-                            if (var != null) {
-                                stmts.addExec(null, expr);
-                                select = asm.at(select).set(var)
-                                        .select(((MemberSelectTree) select).getIdentifier()).asExpr();
-                            }
-                        }
                     }
                     if (mthd != null) {
                         if (select instanceof IdentifierTree) {
@@ -289,10 +276,19 @@ class Inliner {
                                 helper.printError("internal error #3", path);
                             }
                         } else {
-                            self = ((MemberSelectTree) select).getExpression();
+                            self = peelExpr(((MemberSelectTree) select).getExpression());
                             if (mthd.isConst()) {
                                 if (!isAtom(self)) {
                                     self = asm.identOf(stmts.addDecl(select, ext.wrappedType, names, "self", self));
+                                }
+                            } else
+                            if (!(self instanceof IdentifierTree)) {
+                                ExpressionTree expr = JavacUtils.getAssignableExpression(self);
+                                if (expr != null) {
+                                    stmts.addExec(null, self);
+                                    self = expr;
+                                } else {
+                                    helper.printError("not assignable", new TreePath(path, select));
                                 }
                             }
                         }
@@ -334,7 +330,7 @@ class Inliner {
                     } else {
                         ret = asm.at(node).invoke(A, asm.copyOf(typeArgs), Arrays.asList(args)).get(A);
                     }
-                    return new Extract(stmts, ret, false);
+                    return new Extract(stmts, ret);
                 }
 
 
@@ -549,13 +545,7 @@ class Inliner {
                         }
                         return null;
                     } else {
-                        boolean assignable = JavacUtils.isAssignment(kind);
-                        if (assignable && !extr.assignable) {
-                            assignable = false;
-                            helper.printError("not assignable",
-                                    new TreePath(getCurrentPath(), node.getExpression()));
-                        }
-                        return new Extract(extr.stmts, uno(kind, extr.expr), assignable);
+                        return new Extract(extr.stmts, uno(kind, extr.expr));
                     }
                 }
 
@@ -584,7 +574,7 @@ class Inliner {
                     }
                     if (lExtr != null) {
                         ExpressionTree right = node.getRightOperand();
-                        if (rExtr == null) return new Extract(lExtr.stmts, bin(kind, lExtr.expr, right), false);
+                        if (rExtr == null) return new Extract(lExtr.stmts, bin(kind, lExtr.expr, right));
                         Statements stmts = lExtr.stmts;
                         switch (kind) {
                             case CONDITIONAL_AND:
@@ -602,10 +592,10 @@ class Inliner {
                                 asm.at(node).set(A, asm.identOf(var));
                                 if (kind == Tree.Kind.CONDITIONAL_OR) asm.not(A);
                                 stmts.add(asm.ifThen(A, B).get(A));
-                                return new Extract(stmts, var, false);
+                                return new Extract(stmts, var);
                             default:
                                 stmts.addAll(rExtr.stmts);
-                                return new Extract(stmts, bin(kind, lExtr.expr, rExtr.expr), false);
+                                return new Extract(stmts, bin(kind, lExtr.expr, rExtr.expr));
                         }
                     } else {
                         ExpressionTree left = node.getLeftOperand();
@@ -621,10 +611,10 @@ class Inliner {
                                 asm.at(node).set(A, asm.identOf(var));
                                 if (kind == Tree.Kind.CONDITIONAL_OR) asm.not(A);
                                 stmts.add(asm.ifThen(A, B).get(A));
-                                return new Extract(stmts, var, false);
+                                return new Extract(stmts, var);
                             default:
                                 stmts.addAll(rExtr.stmts);
-                                return new Extract(stmts, bin(kind, asm.identOf(var), rExtr.expr), false);
+                                return new Extract(stmts, bin(kind, asm.identOf(var), rExtr.expr));
                         }
                     }
                 }
@@ -635,23 +625,26 @@ class Inliner {
                     Extract varExtr = scan(node.getVariable(), null);
                     Extract expExtr = scan(node.getExpression(), null);
                     if (varExtr == null && expExtr == null) return null;
+                    Statements stmts = null;
+                    ExpressionTree var;
+                    ExpressionTree expr;
                     if (varExtr != null) {
-                        boolean assignable = varExtr.assignable;
-                        if (!assignable) {
-                            helper.printError("not assignable", new TreePath(getCurrentPath(), node.getVariable()));
-                        }
-                        Statements stmts = varExtr.stmts;
-                        if (expExtr == null || !assignable) {
-                            return new Extract(stmts,
-                                    asm.at(node).set(varExtr.expr).assign(node.getExpression()).asExpr(), assignable);
-                        }
-                        stmts.addAll(expExtr.stmts);
-                        return new Extract(varExtr.stmts,
-                                asm.at(node).set(varExtr.expr).assign(expExtr.expr).asExpr(), true);
+                        stmts = varExtr.stmts;
+                        var = varExtr.expr;
                     } else {
-                        return new Extract(expExtr.stmts,
-                                asm.at(node).set(node.getVariable()).assign(expExtr.expr).asExpr(), true);
+                        var = node.getVariable();
                     }
+                    if (expExtr != null) {
+                        if (stmts == null) {
+                            stmts = expExtr.stmts;
+                        } else {
+                            stmts.addAll(expExtr.stmts);
+                        }
+                        expr = expExtr.expr;
+                    } else {
+                        expr = node.getExpression();
+                    }
+                    return new Extract(stmts, asm.at(node).set(var).assign(expr).asExpr());
                 }
 
 
@@ -729,7 +722,7 @@ class Inliner {
                     if (posExtr == null && negExtr == null) {
                         ConditionalExpressionTree expr = asm.copyOf(node);
                         Editors.setCondition(expr, asm.asExpr(D));
-                        return new Extract(stmts, expr, false);
+                        return new Extract(stmts, expr);
                     } else {
                         Name rv = stmts.addDecl(node, helper.attributeExpr(getCurrentPath()), names.generate("var"), null);
                         if (posExtr == null) {
@@ -747,7 +740,7 @@ class Inliner {
                             asm.block(C, branch);
                         }
                         stmts.add(asm.at(node).ifThenElse(D, B, C).asStat(D));
-                        return new Extract(stmts, asm.at(node).identOf(rv), false);
+                        return new Extract(stmts, asm.at(node).identOf(rv));
                     }
                 }
 
@@ -859,16 +852,14 @@ class Inliner {
 
         final Statements     stmts;
         final ExpressionTree  expr;
-        final boolean   assignable;
 
-        Extract(Statements stmts, ExpressionTree expr, boolean assignable) {
+        Extract(Statements stmts, ExpressionTree expr) {
             this.expr = expr;
             this.stmts = stmts;
-            this.assignable = assignable;
         }
 
-        Extract(Statements stmts, Name var, boolean assignable) {
-            this(stmts, asm.identOf(var), assignable);
+        Extract(Statements stmts, Name var) {
+            this(stmts, asm.identOf(var));
         }
     }
 
