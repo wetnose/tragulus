@@ -512,5 +512,10 @@ class Pseudos {
             this.path = path;
             this.elem = helper.asElement(path);
         }
+
+        @Override
+        public String toString() {
+            return elem.getEnclosingElement() + "." + elem;
+        }
     }
 }

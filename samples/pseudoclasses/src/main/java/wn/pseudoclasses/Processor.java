@@ -43,7 +43,7 @@ public class Processor extends BasicProcessor {
     }
 
 
-    public Processor(Listener listener) {
+    Processor(Listener listener) {
         this.listener = listener;
     }
 

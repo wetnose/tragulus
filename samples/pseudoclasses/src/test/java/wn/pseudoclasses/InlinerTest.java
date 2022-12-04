@@ -37,6 +37,29 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("SelfCall-patched")), norm(sc.get("SelfCall")));
     }
 
+    @Test
+    public void procCall() throws Exception {
+        SourceCollector sc = new SourceCollector("ProcCall");
+        Assertions.assertTrue( compile(new Processor(sc), "ProcCall", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("ProcCall", out);
+        Assertions.assertEquals(
+                "getByte(2)\n" +
+                "getByte(0)\n" +
+                "b00000b\n" +
+                "getByte(1)\n" +
+                "1110\n" +
+                "getByte(1)\n" +
+                "34\n" +
+                "2\n" +
+                "2000001\n" +
+                "getByte(0)\n" +
+                "getByte(2)\n" +
+                "56", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("ProcCall-patched")), norm(sc.get("ProcCall")));
+        //System.out.println(sc.get("ProcCall"));
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //

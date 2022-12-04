@@ -72,11 +72,6 @@ class Inliner {
     }
 
 
-    static String toFullName(Element method) {
-        return method.getEnclosingElement() + "." + method;
-    }
-
-
     private static class MethodDesc {
         final Method mthd;
         final HashSet<Dep> deps = new HashSet<>();
@@ -85,7 +80,7 @@ class Inliner {
         }
         @Override
         public String toString() {
-            return toFullName(mthd.elem);
+            return mthd.elem.getEnclosingElement() + "." + mthd.elem;
         }
     }
 
@@ -110,17 +105,17 @@ class Inliner {
                     .filter(t -> t instanceof Extension)
                     .collect(Collectors.toMap(t -> t.elem.asType(), t -> (Extension) t));
 
-            HashMap<String,MethodDesc> methods = new HashMap<>();
+            HashMap<Element,MethodDesc> methods = new HashMap<>();
             extensions.values().stream()
                     .flatMap(e -> Stream.concat(e.constructors.stream(), e.methods.stream()))
-                    .forEach(m -> methods.put(toFullName(m.elem), new MethodDesc(m)));
+                    .forEach(m -> methods.put(m.elem, new MethodDesc(m)));
 
             TreePathScanner<Void,MethodDesc> dependencyCollector = new TreePathScanner<>() {
                 @Override
                 public Void visitMethodInvocation(MethodInvocationTree node, MethodDesc desc) {
                     TreePath path = new TreePath(getCurrentPath(), node.getMethodSelect());
                     Element elem = trees.getElement(path);
-                    MethodDesc dep = methods.get(toFullName(elem));
+                    MethodDesc dep = methods.get(elem);
                     if (dep != null) desc.deps.add(new Dep(dep, path));
                     return super.visitMethodInvocation(node, desc);
                 }

@@ -28,7 +28,8 @@ public final class IntAnatomy0 extends Wrapper<int> {
     }
 
     int getByte(int index) {
-        System.out.printf("index = " + index++);
+        //System.out.println("index = " + index++);
+        System.out.printf("getByte(%d)%n", index);
         return this.value >> (index << 3) & 0xff;
     }
 
