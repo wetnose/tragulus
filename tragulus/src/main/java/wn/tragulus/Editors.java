@@ -266,6 +266,11 @@ public class Editors {
         block.stats = insert(block.stats, index, toJCList(statements));
     }
 
+    public static void addStatements(BlockTree node, StatementTree after, Collection<? extends StatementTree> statements) {
+        JCBlock block = (JCBlock) node;
+        block.stats = insert(block.stats, (JCStatement) after, toJCList(statements));
+    }
+
     public static void setStatements(CaseTree node, Collection<? extends StatementTree> statements) {
         ((JCCase) node).stats = toJCList(statements);
     }
@@ -278,6 +283,11 @@ public class Editors {
     public static void addStatements(CaseTree node, int index, Collection<? extends StatementTree> statements) {
         JCCase cas = (JCCase) node;
         cas.stats = insert(cas.stats, index, toJCList(statements));
+    }
+
+    public static void addStatements(CaseTree node, StatementTree after, Collection<? extends StatementTree> statements) {
+        JCCase cas = (JCCase) node;
+        cas.stats = insert(cas.stats, (JCStatement) after, toJCList(statements));
     }
 
 
