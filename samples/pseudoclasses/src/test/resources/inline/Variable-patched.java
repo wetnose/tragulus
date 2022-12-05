@@ -19,6 +19,7 @@ public class Variable {
             }
             an = var2;
         }
+        int x = (int)1;
         {
             int var4;
             get3: {
