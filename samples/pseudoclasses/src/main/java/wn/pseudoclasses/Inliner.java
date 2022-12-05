@@ -508,12 +508,28 @@ class Inliner {
 
                 @Override
                 public Extract visitVariable(VariableTree node, Void unused) {
-                    super.visitVariable(node, null);
                     TreePath path = getCurrentPath();
                     Tree type = node.getType();
                     Extension ext = extensions.get(helper.typeOf(path, type));
                     if (ext != null) {
                         Editors.setType(node, asm.at(type).type(ext.wrappedType).asExpr());
+                    }
+                    Extract init = scan(node.getInitializer(), null);
+                    if (init != null) {
+                        Editors.setInitializer(node, null);
+                        Statements stmts = init.stmts;
+                        stmts.addAssign(node, node.getName(), init.expr);
+                        BlockTree block = asm.at(node.getInitializer()).block(stmts).get();
+                        TreePath parent = path.getParentPath();
+                        if (parent.getLeaf() instanceof BlockTree) {
+                            Editors.addStatements((BlockTree) parent.getLeaf(), node, Arrays.asList(block));
+                        } else
+                        if (parent.getLeaf() instanceof CaseTree) {
+                            Editors.addStatements((CaseTree) parent.getLeaf(), node, Arrays.asList(block));
+                        } else {
+                            helper.printError("internal error #5", getCurrentPath());
+                            //Editors.replaceTree(path, block);
+                        }
                     }
                     return null;
                 }
@@ -759,7 +775,7 @@ class Inliner {
             if (pseudos.listener != null)
                 pseudos.listener.accept(root.getLeaf());
 
-//            System.out.println(root.getLeaf());
+            System.out.println(root.getLeaf());
 //            System.out.println(names);
         }
 

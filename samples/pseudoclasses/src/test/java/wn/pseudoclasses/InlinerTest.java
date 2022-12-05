@@ -90,6 +90,16 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("IfThen-patched")), norm(sc.get("IfThen")));
     }
 
+    @Test
+    public void variable() throws Exception {
+        SourceCollector sc = new SourceCollector("Variable");
+        Assertions.assertTrue( compile(new Processor(sc), "Variable", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("Variable", out);
+        Assertions.assertEquals("getByte(1)\n52", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("Variable-patched")), norm(sc.get("Variable")));
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //
