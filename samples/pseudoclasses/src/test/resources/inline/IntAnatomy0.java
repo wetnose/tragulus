@@ -11,10 +11,10 @@ import java.nio.charset.StandardCharsets;
 @Pseudo
 public final class IntAnatomy0 extends Wrapper<int> {
 
-//    int get() {
-//        return value;
-//    }
-//
+    int get() {
+        return value;
+    }
+
 //    int loWord() {
 //        return value & 0xffff;
 //    }

@@ -206,9 +206,14 @@ class Pseudos {
                             default:
                                 break accessCheck;
                         }
-                        if (member && isStatic(element)) {
-                            helper.printError("static members not supported", path);
-                            break accessCheck;
+                        if (member) {
+                            if (isStatic(element)) {
+                                helper.printError("static members not supported", path);
+                                break accessCheck;
+                            }
+                            if (type instanceof Wrapper && element == wrapperValue) {
+                                break accessCheck;
+                            }
                         }
                         if (pub) {
                             if (isPublic(element)) break accessCheck;

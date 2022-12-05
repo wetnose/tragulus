@@ -80,6 +80,16 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("PostfixIncDec-patched")), norm(sc.get("PostfixIncDec")));
     }
 
+    @Test
+    public void ifThen() throws Exception {
+        SourceCollector sc = new SourceCollector("IfThen");
+        Assertions.assertTrue( compile(new Processor(sc), "IfThen", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("IfThen", out);
+        Assertions.assertEquals("getByte(2)\n12340078", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("IfThen-patched")), norm(sc.get("IfThen")));
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //

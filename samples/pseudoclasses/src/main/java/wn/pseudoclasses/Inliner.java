@@ -224,10 +224,10 @@ class Inliner {
                         case CONSTRUCTOR:
                             if (pseudos.elements.getOrigin(unk) != Elements.Origin.MANDATED) break;
                         default:
-                            return null;
+                            unk = null;
                     }
                     ExecutableElement elem = (ExecutableElement) unk;
-                    Extension ext = extensions.get(elem.getEnclosingElement().asType());
+                    Extension ext = elem == null ? null : extensions.get(elem.getEnclosingElement().asType());
                     if (ext != null && !(ext instanceof Pseudos.Wrapper)) {
                         ext = null;
                         helper.printError("not supported yet", elem);
@@ -248,15 +248,7 @@ class Inliner {
                     args = node.getArguments().toArray(new ExpressionTree[0]); // could be evaluated
                     if (selExtr == null && extrCount == 0 && ext == null) return null;
                     ExpressionTree self = null;
-                    MethodInjector mthd;
-                    VariableElement[] params;
-                    if (ext != null) {
-                        mthd = new MethodInjector(ext, elem);
-                        params = mthd.params;
-                    } else {
-                        mthd = null;
-                        params = elem.getParameters().toArray(new VariableElement[0]);
-                    }
+                    MethodInjector mthd = ext == null ? null : new MethodInjector(ext, elem);
                     Statements stmts = new Statements();
                     if (selExtr != null) {
                         stmts.addAll(selExtr.stmts);
@@ -306,10 +298,10 @@ class Inliner {
                             expr = null;
                         }
                         if (!isAtom(expr)) {
-                            if (arg instanceof LiteralTree) {
+                            if (mthd == null || arg instanceof LiteralTree) {
                                 args[i] = arg;
                             } else {
-                                TypeMirror type = params[i].asType();
+                                TypeMirror type = mthd.params[i].asType();
                                 if (expr == null) expr = asm.copyOf(arg);
                                 Name var = stmts.addDecl(arg, type, names, "var", expr);
                                 args[i] = asm.identOf(var);
@@ -745,6 +737,22 @@ class Inliner {
                         return new Extract(stmts, asm.at(node).identOf(rv));
                     }
                 }
+
+
+                @Override
+                public Extract visitIf(IfTree node, Void unused) {
+                    Extract ext = scan(node.getCondition(), null);
+                    if (scan(node.getThenStatement(), null) != null || scan(node.getElseStatement(), null) != null) {
+                        helper.printError("internal error #4", getCurrentPath());
+                    }
+                    if (ext != null) {
+                        Statements stmts = ext.stmts;
+                        stmts.add(asm.at(node).copyOf(node, (t, copier) -> t == node.getCondition() ? ext.expr : null));
+                        Editors.replaceTree(getCurrentPath(), asm.block(stmts).get());
+                    }
+                    return null;
+                }
+
 
             }.scan(root, null);
 
