@@ -112,4 +112,21 @@ public class JCUtilsTest {
             JCUtils.insert(src, 4, Arrays.asList("X", "Y", "Z"));
         });
     }
+
+
+    @Test
+    public void insertCollectionAfter() {
+        List<String> src = List.of("A", "B", "C");
+        List<String> act = JCUtils.insert(src, "B", Arrays.asList("X", "Y"));
+        Assertions.assertEquals(Arrays.asList("A", "B", "X", "Y", "C"), new ArrayList<>(act));
+    }
+
+
+    @Test
+    public void insertCollectionAfterUnk() {
+        Assertions.assertThrows(IndexOutOfBoundsException.class, () -> {
+            List<String> src = List.of("A", "B", "C");
+            JCUtils.insert(src, "U", Arrays.asList("X", "Y"));
+        });
+    }
 }

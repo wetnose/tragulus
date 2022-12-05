@@ -79,6 +79,23 @@ public class JCUtils {
     }
 
 
+    public static <T> List<T> insert(List<T> list, T after, Collection<? super T> val) {
+        ListBuffer<T> buf = new ListBuffer<>();
+        for (T t : list) {
+            buf.append(t);
+            if (t == after) {
+                //noinspection unchecked
+                buf.addAll((Collection<? extends T>) val);
+                after = null;
+            }
+        }
+        if (after != null) {
+            throw new IndexOutOfBoundsException();
+        }
+        return buf.toList();
+    }
+
+
     public static <T> List<T> remove(List<T> list, T val) {
         return List.filter(list, val);
     }
