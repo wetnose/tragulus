@@ -1,6 +1,7 @@
 package wn.pseudoclasses;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.tools.Diagnostic;
@@ -25,7 +26,7 @@ public class ValidatorTest extends PseudoTest {
     public void inner() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
         Assertions.assertFalse( compile(new Processor(), collector, "Outer") );
-        assertReport(collector, Diagnostic.Kind.ERROR, "nested pseudoclasses not supported");
+        assertReport(collector, Diagnostic.Kind.ERROR, "'static' modifier expected");
     }
 
 
