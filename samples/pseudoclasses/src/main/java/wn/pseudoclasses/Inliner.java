@@ -182,26 +182,33 @@ class Inliner {
 
 
                 @Override
-                public Extract visitExpressionStatement(ExpressionStatementTree node, Void unused) {
-                    Extract extr = scan(node.getExpression(), null);
-                    if (extr == null) return null;
-                    Statements stmts = extr.stmts;
-                    ExpressionTree expr = extr.expr;
-                    asm.at(node);
-                    if (expr != null) {
-                        if (JavacUtils.isStatementExpression(expr)) {
-                            stmts.add(asm.set(extr.expr).exec().get());
-                        } else if (expr.getKind() != Tree.Kind.IDENTIFIER) {
-                            helper.printError("internal error #2", new TreePath(getCurrentPath(), expr));
-                            throw new AssertionError();
+                public Extract visitBlock(BlockTree node, Void unused) {
+                    ArrayList<StatementTree> block = new ArrayList<>();
+                    boolean hasExtr = false;
+                    for (StatementTree stmt : node.getStatements()) {
+                        Extract extr = scan(stmt, null);
+                        if (extr != null) {
+                            hasExtr = true;
+                            Statements upd = extr.exec(node);
+                            if (upd != null) {
+                                block.addAll(upd);
+                                continue;
+                            }
+                            helper.printError("internal error #2", new TreePath(getCurrentPath(), stmt));
                         }
+                        block.add(stmt);
                     }
-                    if (stmts.size() == 1) {
-                        Editors.replaceTree(getCurrentPath(), stmts.get(0));
-                    } else {
-                        Editors.replaceTree(getCurrentPath(), asm.block(stmts).get());
+                    if (hasExtr) {
+                        Editors.setStatements(node, block);
                     }
                     return null;
+                }
+
+
+                @Override
+                public Extract visitExpressionStatement(ExpressionStatementTree node, Void unused) {
+                    Extract extr = scan(node.getExpression(), null);
+                    return extr == null ? null : new Extract(extr.asStat(node));
                 }
 
 
@@ -517,19 +524,11 @@ class Inliner {
                     Extract init = scan(node.getInitializer(), null);
                     if (init != null) {
                         Editors.setInitializer(node, null);
-                        Statements stmts = init.stmts;
-                        stmts.addAssign(node, node.getName(), init.expr);
-                        BlockTree block = asm.at(node.getInitializer()).block(stmts).get();
-                        TreePath parent = path.getParentPath();
-                        if (parent.getLeaf() instanceof BlockTree) {
-                            Editors.addStatements((BlockTree) parent.getLeaf(), node, Arrays.asList(block));
-                        } else
-                        if (parent.getLeaf() instanceof CaseTree) {
-                            Editors.addStatements((CaseTree) parent.getLeaf(), node, Arrays.asList(block));
-                        } else {
-                            helper.printError("internal error #5", getCurrentPath());
-                            //Editors.replaceTree(path, block);
-                        }
+                        Statements stmts = new Statements(2);
+                        stmts.add(asm.copyOf(node));
+                        init.stmts.addAssign(node, node.getName(), init.expr);
+                        stmts.add(asm.at(node.getInitializer()).block(init.stmts).get());
+                        return new Extract(stmts);
                     }
                     return null;
                 }
@@ -701,13 +700,11 @@ class Inliner {
 
                 @Override
                 public Extract visitReturn(ReturnTree node, Void unused) {
-                    Extract ext = scan(node.getExpression(), null);
-                    if (ext != null) {
-                        Statements stmts = ext.stmts;
-                        stmts.add(asm.at(node).ret(ext.expr).asStat());
-                        Editors.replaceTree(getCurrentPath(), asm.block(stmts).get());
-                    }
-                    return null;
+                    Extract extr = scan(node.getExpression(), null);
+                    if (extr == null) return null;
+                    Statements stmts = extr.stmts;
+                    stmts.add(asm.at(node).ret(extr.expr).asStat());
+                    return new Extract(asm.block(stmts).asStat());
                 }
 
 
@@ -757,14 +754,25 @@ class Inliner {
 
                 @Override
                 public Extract visitIf(IfTree node, Void unused) {
-                    Extract ext = scan(node.getCondition(), null);
-                    if (scan(node.getThenStatement(), null) != null || scan(node.getElseStatement(), null) != null) {
-                        helper.printError("internal error #4", getCurrentPath());
-                    }
-                    if (ext != null) {
-                        Statements stmts = ext.stmts;
-                        stmts.add(asm.at(node).copyOf(node, (t, copier) -> t == node.getCondition() ? ext.expr : null));
-                        Editors.replaceTree(getCurrentPath(), asm.block(stmts).get());
+                    Extract conExtr = scan(node.getCondition(), null);
+                    Extract posExtr = scan(node.getThenStatement(), null);
+                    Extract negExtr = scan(node.getElseStatement(), null);
+                    if (conExtr == null && posExtr == null && negExtr == null) return null;
+                    if (conExtr != null) {
+                        ExpressionTree con = node.getCondition();
+                        StatementTree  pos = node.getThenStatement();
+                        StatementTree  neg = node.getElseStatement();
+                        Statements stmts = conExtr.stmts;
+                        stmts.add(asm.copyOf(node, (t, copier) -> {
+                            if (t == con) return conExtr.expr;
+                            if (posExtr != null && t == pos) return posExtr.asStat(pos);
+                            if (negExtr != null && t == neg) return negExtr.asStat(neg);
+                            return null;
+                        }));
+                        return new Extract(asm.block(stmts).asStat());
+                    } else {
+                        if (posExtr != null) Editors.setThen(node, posExtr.asStat(node.getThenStatement()));
+                        if (negExtr != null) Editors.setElse(node, negExtr.asStat(node.getElseStatement()));
                     }
                     return null;
                 }
@@ -889,6 +897,37 @@ class Inliner {
 
         Extract(Statements stmts, Name var) {
             this(stmts, asm.identOf(var));
+        }
+
+        Extract(Statements stmts) {
+            this(stmts, (ExpressionTree) null);
+        }
+
+        Extract(StatementTree stmt, ExpressionTree expr) {
+            this(new Statements(1), expr);
+            stmts.add(stmt);
+        }
+
+        Extract(StatementTree stmt) {
+            this(stmt, null);
+        }
+
+        Statements exec(Tree pos) {
+            asm.at(pos);
+            if (expr != null) {
+                if (JavacUtils.isStatementExpression(expr)) {
+                    stmts.add(asm.set(expr).exec().get());
+                } else if (expr.getKind() != Tree.Kind.IDENTIFIER) {
+                    return null;
+                }
+            }
+            return stmts;
+        }
+
+        StatementTree asStat(Tree pos) {
+            Statements stmts = exec(pos);
+            if (stmts == null) return null;
+            return stmts.size() == 1 ? stmts.get(0) : asm.block(V, stmts).get(V);
         }
     }
 

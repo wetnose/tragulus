@@ -171,6 +171,14 @@ public class Editors {
         ((JCIf) node).cond = (JCExpression) condition;
     }
 
+    public static void setThen(IfTree node, StatementTree thenPart) {
+        ((JCIf) node).thenpart = (JCStatement) thenPart;
+    }
+
+    public static void setElse(IfTree node, StatementTree elsePart) {
+        ((JCIf) node).elsepart = (JCStatement) elsePart;
+    }
+
     public static void setExpression(InstanceOfTree node, ExpressionTree expression) {
         ((JCInstanceOf) node).expr = (JCExpression) expression;
     }
