@@ -214,7 +214,8 @@ class Inliner {
                 @Override
                 public Extract visitExpressionStatement(ExpressionStatementTree node, Void unused) {
                     Extract extr = scan(node.getExpression(), null);
-                    return extr == null ? null : new Extract(extr.asStat(node));
+                    StatementTree stmt;
+                    return extr == null || (stmt = extr.asStat(node)) == null ? null : new Extract(stmt);
                 }
 
 
