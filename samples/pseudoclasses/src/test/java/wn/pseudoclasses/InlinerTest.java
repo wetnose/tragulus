@@ -100,6 +100,26 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("Variable-patched")), norm(sc.get("Variable")));
     }
 
+    @Test
+    public void forLoop() throws Exception {
+        SourceCollector sc = new SourceCollector("ForLoop");
+        Assertions.assertTrue( compile(new Processor(sc), "ForLoop", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("ForLoop", out);
+        Assertions.assertEquals("getByte(0)\n0\ngetByte(1)\n0\ngetByte(0)\ngetByte(0)", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("ForLoop-patched")), norm(sc.get("ForLoop")));
+    }
+
+    @Test
+    public void forLoopLabeled() throws Exception {
+        SourceCollector sc = new SourceCollector("ForLoopLabeled");
+        Assertions.assertTrue( compile(new Processor(sc), "ForLoopLabeled", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("ForLoopLabeled", out);
+        Assertions.assertEquals("getByte(0)\n0\ngetByte(1)\n0\ngetByte(0)\ngetByte(0)", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("ForLoopLabeled-patched")), norm(sc.get("ForLoopLabeled")));
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //

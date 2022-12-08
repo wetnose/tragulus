@@ -181,15 +181,14 @@ class Inliner {
                 }
 
 
-                @Override
-                public Extract visitBlock(BlockTree node, Void unused) {
-                    ArrayList<StatementTree> block = new ArrayList<>();
+                Statements processBlock(List<? extends StatementTree> stmts) {
+                    Statements block = new Statements();
                     boolean hasExtr = false;
-                    for (StatementTree stmt : node.getStatements()) {
+                    for (StatementTree stmt : stmts) {
                         Extract extr = scan(stmt, null);
                         if (extr != null) {
                             hasExtr = true;
-                            Statements upd = extr.exec(node);
+                            Statements upd = extr.exec(stmt);
                             if (upd != null) {
                                 block.addAll(upd);
                                 continue;
@@ -198,7 +197,14 @@ class Inliner {
                         }
                         block.add(stmt);
                     }
-                    if (hasExtr) {
+                    return hasExtr ? block : null;
+                }
+
+
+                @Override
+                public Extract visitBlock(BlockTree node, Void unused) {
+                    Statements block = processBlock(node.getStatements());
+                    if (block != null) {
                         Editors.setStatements(node, block);
                     }
                     return null;
@@ -758,10 +764,11 @@ class Inliner {
                     Extract posExtr = scan(node.getThenStatement(), null);
                     Extract negExtr = scan(node.getElseStatement(), null);
                     if (conExtr == null && posExtr == null && negExtr == null) return null;
+                    ExpressionTree con = node.getCondition();
+                    StatementTree  pos = node.getThenStatement();
+                    StatementTree  neg = node.getElseStatement();
+                    StatementTree  tmp;
                     if (conExtr != null) {
-                        ExpressionTree con = node.getCondition();
-                        StatementTree  pos = node.getThenStatement();
-                        StatementTree  neg = node.getElseStatement();
                         Statements stmts = conExtr.stmts;
                         stmts.add(asm.copyOf(node, (t, copier) -> {
                             if (t == con) return conExtr.expr;
@@ -771,10 +778,91 @@ class Inliner {
                         }));
                         return new Extract(asm.block(stmts).asStat());
                     } else {
-                        if (posExtr != null) Editors.setThen(node, posExtr.asStat(node.getThenStatement()));
-                        if (negExtr != null) Editors.setElse(node, negExtr.asStat(node.getElseStatement()));
+                        if (posExtr != null && (tmp = posExtr.asStat(pos)) != null) Editors.setThen(node, tmp);
+                        if (negExtr != null && (tmp = negExtr.asStat(neg)) != null) Editors.setElse(node, tmp);
                     }
                     return null;
+                }
+
+
+                @Override
+                public Extract visitLabeledStatement(LabeledStatementTree node, Void unused) {
+                    StatementTree stmt = node.getStatement();
+                    Extract extr = scan(stmt, null);
+                    switch (stmt.getKind()) {
+                        case FOR_LOOP:
+                        case ENHANCED_FOR_LOOP:
+                        case WHILE_LOOP:
+                        case DO_WHILE_LOOP:
+                            return extr;
+                        default:
+                            return extr == null || (stmt = extr.asStat(node)) == null ? null : new Extract(stmt);
+                    }
+                }
+
+
+                LabeledStatementTree labeled(TreePath path) {
+                    if (!(path.getLeaf() instanceof StatementTree)) return null;
+                    path = path.getParentPath();
+                    if (path.getLeaf().getKind() == Tree.Kind.LABELED_STATEMENT) {
+                        return (LabeledStatementTree) path.getLeaf();
+                    }
+                    return null;
+                }
+
+
+                @Override
+                public Extract visitForLoop(ForLoopTree node, Void unused) {
+                    Statements iniBlock = processBlock(node.getInitializer());
+                    Extract    conExtr  = scan(node.getCondition(), null);
+                    Statements updBlock = processBlock(node.getUpdate());
+                    Extract    stmExtr  = scan(node.getStatement(), null);
+                    if (iniBlock == null && conExtr == null && updBlock == null && stmExtr == null) return null;
+                    ExpressionTree con = node.getCondition();
+                    StatementTree  stm = node.getStatement(), tmp;
+                    Statements stmts = null;
+                    ForLoopTree loop;
+                    if (iniBlock != null) {
+                        loop = asm.forLoop(
+                                null,
+                                conExtr != null ? null : asm.copyOf(con),
+                                updBlock != null ? updBlock : asm.copyOf(node.getUpdate()),
+                                null).get();
+                        stmts = iniBlock;
+                        TreePath path = getCurrentPath();
+                        LabeledStatementTree labeled = labeled(path);
+                        if (labeled != null) {
+                            stmts.addLabeled(labeled, labeled.getLabel(), loop);
+                        } else {
+                            stmts.add(loop);
+                        }
+                    } else {
+                        loop = node;
+                        if (conExtr != null)
+                            Editors.setCondition(loop, null);
+                    }
+                    if (conExtr != null) {
+                        Statements body, conStmts = conExtr.stmts;
+                        conStmts.add(asm.at(con)
+                                .set(A, conExtr.expr)
+                                .empty(B)
+                                .brk(C, null).ifThenElse(A, B, C).get(A));
+                        BlockTree cond = asm.at(con).block(conStmts).get();
+                        if (stmExtr == null) {
+                            body = new Statements(2);
+                            body.add(cond);
+                            body.add(node.getStatement());
+                        } else {
+                            body = stmExtr.exec(stm);
+                            body.add(0, cond);
+                        }
+                        stm = asm.at(stm).block(body).get();
+                    } else
+                    if (stmExtr != null && (tmp = stmExtr.asStat(stm)) != null) {
+                        stm = tmp;
+                    }
+                    Editors.setStatement(loop, stm);
+                    return stmts == null ? null : new Extract(stmts);
                 }
 
 
@@ -881,6 +969,11 @@ class Inliner {
         void addExec(Tree pos, ExpressionTree expr) {
             if (pos != null) asm.at(pos);
             add(asm.set(V, expr).exec(V).asStat(V));
+        }
+
+        void addLabeled(Tree pos, Name label, StatementTree stat) {
+            if (pos != null) asm.at(pos);
+            add(asm.set(V, stat).labeled(V, label).get(V));
         }
     }
 

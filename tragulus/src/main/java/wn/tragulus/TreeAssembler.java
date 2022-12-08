@@ -786,6 +786,22 @@ public class TreeAssembler {
     }
 
 
+    public TreeAssembler forLoop(
+            Iterable<? extends StatementTree> init, ExpressionTree cond, Iterable<? extends StatementTree> step,
+            StatementTree body) {
+        return forLoop(0, init, cond, step, body);
+    }
+
+
+    public TreeAssembler forLoop(
+            int reg,
+            Iterable<? extends StatementTree> init, ExpressionTree cond, Iterable<? extends StatementTree> step,
+            StatementTree body) {
+        set(reg, M.ForLoop(JCUtils.toJCList(init), (JCExpression) cond, JCUtils.toJCList(step), (JCStatement) body));
+        return this;
+    }
+
+
 //    public <T extends Tree> Collection<T> collectRange(int startReg, int stopReg) {
 //        int sz = stack.size();
 //        java.util.List<JCTree> stats = stack.subList(sz-count, sz);
