@@ -4,7 +4,12 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
+import com.sun.source.util.Trees;
+import wn.pseudoclasses.Pseudos.Extension;
 import wn.pseudoclasses.Pseudos.PseudoType;
 import wn.tragulus.BasicProcessor;
 import wn.tragulus.Editors;
@@ -18,12 +23,16 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 /**
@@ -113,8 +122,12 @@ public class Processor extends BasicProcessor {
         }
 
         if (valid && helper.noErrorReports()) {
-            final Inliner inliner = new Inliner(pseudos);
-            inliner.inline(pseudotypes);
+            Inliner inliner = new Inliner(pseudos);
+            preprocessExtensions(pseudos, inliner);
+            pseudos.all().stream()
+                    .flatMap(t -> t.units.stream())
+                    .distinct()
+                    .forEach(unit -> inliner.inline(new TreePath(unit)));
         }
 
         pseudotypes.forEach(type -> {
@@ -125,6 +138,85 @@ public class Processor extends BasicProcessor {
         });
 
         return false;
+    }
+
+
+    void preprocessExtensions(Pseudos pseudos, Inliner inliner) {
+        Trees trees = pseudos.trees;
+
+        Map<TypeMirror, Extension> extensions;
+        extensions = pseudos.all().stream()
+                .filter(t -> t instanceof Extension)
+                .collect(Collectors.toMap(t -> t.elem.asType(), t -> (Extension) t));
+
+        HashMap<Element,MethodDesc> methods = new HashMap<>();
+        extensions.values().stream()
+                .flatMap(e -> Stream.concat(e.constructors.stream(), e.methods.stream()))
+                .forEach(m -> methods.put(m.elem, new MethodDesc(m)));
+
+        TreePathScanner<Void,MethodDesc> dependencyCollector = new TreePathScanner<>() {
+            @Override
+            public Void visitMethodInvocation(MethodInvocationTree node, MethodDesc desc) {
+                TreePath path = new TreePath(getCurrentPath(), node.getMethodSelect());
+                Element elem = trees.getElement(path);
+                MethodDesc dep = methods.get(elem);
+                if (dep != null) desc.deps.add(new Dep(dep, path));
+                return super.visitMethodInvocation(node, desc);
+            }
+        };
+
+        methods.values().forEach(desc -> dependencyCollector.scan(desc.mthd.path, desc));
+
+        LinkedHashSet<MethodDesc> ordered = new LinkedHashSet<>(methods.size());
+        LinkedList<MethodDesc> queue = new LinkedList<>();
+        HashSet<MethodDesc> passed = new HashSet<>();
+        methods.values().forEach(d -> {
+            if (!passed.add(d)) return;
+            queue.add(d);
+            MethodDesc desc;
+            while ((desc = queue.peek()) != null) {
+                boolean added = false;
+                for (Dep dep : desc.deps) {
+                    MethodDesc dd = dep.desc;
+                    if (ordered.contains(dd)) continue;
+                    if (passed.add(dd)) {
+                        queue.addFirst(dd);
+                        added = true;
+                    } else {
+                        helper.printError("prohibited recursion", dep.path);
+                    }
+                }
+                if (added) continue;
+                ordered.add(queue.poll());
+            }
+        });
+
+        for (MethodDesc desc : ordered) {
+            if (desc.deps.isEmpty()) continue;
+            inliner.inline(desc.mthd.path);
+        }
+    }
+
+
+    private static class MethodDesc {
+        final Pseudos.Method mthd;
+        final HashSet<Dep> deps = new HashSet<>();
+        MethodDesc(Pseudos.Method mthd) {
+            this.mthd = mthd;
+        }
+        @Override
+        public String toString() {
+            return mthd.elem.getEnclosingElement() + "." + mthd.elem;
+        }
+    }
+
+    private static class Dep {
+        final MethodDesc desc;
+        final TreePath path;
+        Dep(MethodDesc desc, TreePath path) {
+            this.desc = desc;
+            this.path = path;
+        }
     }
 
 

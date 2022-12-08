@@ -26,7 +26,10 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -63,6 +66,7 @@ class Pseudos {
     }
 
 
+    final Map<TypeMirror,PseudoType> pseudotypes = new HashMap<>();
     final Consumer<Tree> listener;
 
     final ProcessingHelper helper;
@@ -158,12 +162,25 @@ class Pseudos {
 
 
     PseudoType pseudoTypeOf(TreePath path) {
-        PseudoType type = detectPseudotype(path);
-        if (type != null) {
-            if (type instanceof Extension) ((Extension) type).decompose();
-            validate(type);
-        }
-        return type;
+        return pseudotypes.computeIfAbsent(helper.asType(path), t -> {
+            PseudoType type = detectPseudotype(path);
+            if (type != null) {
+                if (type instanceof Extension) ((Extension) type).decompose();
+                validate(type);
+            }
+            return type;
+        });
+    }
+
+
+    Collection<? extends PseudoType> all() {
+        return pseudotypes.values();
+    }
+
+
+    Extension getExtension(TypeMirror type) {
+        PseudoType pseudotype = pseudotypes.get(type);
+        return pseudotype instanceof Extension ? (Extension) pseudotype : null;
     }
 
 
