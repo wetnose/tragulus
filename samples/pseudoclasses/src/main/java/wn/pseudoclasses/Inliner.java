@@ -789,6 +789,25 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     }
 
 
+    @Override
+    public Extract visitDoWhileLoop(DoWhileLoopTree node, Names names) {
+        Extract conExtr  = scan(node.getCondition(), names);
+        Extract stmExtr  = scan(node.getStatement(), names);
+        if (conExtr == null && stmExtr == null) return null;
+        StatementTree stm = node.getStatement();
+        stm = stmExtr != null ? stmExtr.asStat(stm) : stm;
+        if (conExtr != null) {
+            Statements stmts = conExtr.stmts;
+            stmts.add(asm.at(node.getCondition()).set(A, conExtr.expr).not(A).brk(B, null).ifThen(A, B).get(A));
+            ForLoopTree loop = asm.at(node).forLoop(null, null, stmts, stm).get();
+            return new Extract(loop);
+        } else {
+            Editors.setStatement(node, stm);
+            return null;
+        }
+    }
+
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Routines
 
