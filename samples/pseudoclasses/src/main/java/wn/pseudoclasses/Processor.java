@@ -62,15 +62,7 @@ public class Processor extends BasicProcessor {
 
         if (env.getRootElements().isEmpty()) return false;
 
-        Pseudos pseudos = new Pseudos(helper, listener == null ? null : tree -> {
-            JavacUtils.scan(tree, t -> {
-                if (t.getKind() == Tree.Kind.CLASS) {
-                    ClassTree clazz = (ClassTree) t;
-                    listener.onInlined(clazz.getSimpleName().toString(), clazz.toString());
-                }
-            });
-        });
-
+        Pseudos pseudos = new Pseudos(helper);
         ArrayList<PseudoType> pseudotypes = new ArrayList<>();
 
         for (Element element : env.getRootElements()) {
@@ -127,7 +119,17 @@ public class Processor extends BasicProcessor {
             pseudos.all().stream()
                     .flatMap(t -> t.units.stream())
                     .distinct()
-                    .forEach(unit -> inliner.inline(new TreePath(unit)));
+                    .forEach(unit -> {
+                        inliner.inline(new TreePath(unit));
+                        if (listener != null) {
+                            JavacUtils.scan(unit, t -> {
+                                if (t.getKind() == Tree.Kind.CLASS) {
+                                    ClassTree clazz = (ClassTree) t;
+                                    listener.onInlined(clazz.getSimpleName().toString(), clazz.toString());
+                                }
+                            });
+                        }
+                    });
         }
 
         pseudotypes.forEach(type -> {

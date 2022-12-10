@@ -31,7 +31,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.sun.tools.javac.code.Flags.FINAL;
@@ -67,7 +66,6 @@ class Pseudos {
 
 
     final Map<TypeMirror,PseudoType> pseudotypes = new HashMap<>();
-    final Consumer<Tree> listener;
 
     final ProcessingHelper helper;
     final Trees            trees;
@@ -85,9 +83,7 @@ class Pseudos {
     final Name    thisName;
 
 
-    public Pseudos(ProcessingHelper helper, Consumer<Tree> listener) {
-        this.listener = listener;
-
+    public Pseudos(ProcessingHelper helper) {
         this.helper   = helper;
         this.trees    = helper.getTreeUtils();
         this.types    = helper.getTypeUtils();
