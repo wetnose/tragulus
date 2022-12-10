@@ -715,6 +715,32 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     }
 
 
+    StatementTree getLoopStatement(ExpressionTree con, Extract conExtr, StatementTree stm, Extract stmExtr) {
+        StatementTree tmp;
+        if (conExtr != null) {
+            Statements body, conStmts = conExtr.stmts;
+            conStmts.add(asm.at(con)
+                    .set(A, conExtr.expr).not(A)
+                    .brk(B, null).ifThen(A, B).get(A));
+            BlockTree cond = asm.at(con).block(conStmts).get();
+            if (stmExtr == null) {
+                body = new Statements(2);
+                body.add(cond);
+                body.add(asm.copyOf(stm));
+            } else {
+                body = stmExtr.exec(stm);
+                body.add(0, cond);
+            }
+            return asm.at(stm).block(body).get();
+        } else
+        if (stmExtr != null && (tmp = stmExtr.asStat(stm)) != null) {
+            return tmp;
+        } else {
+            return stm;
+        }
+    }
+
+
     @Override
     public Extract visitForLoop(ForLoopTree node, Names names) {
         Statements iniBlock = processBlock(node.getInitializer(), names);
@@ -723,7 +749,6 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
         Extract    stmExtr  = scan(node.getStatement(), names);
         if (iniBlock == null && conExtr == null && updBlock == null && stmExtr == null) return null;
         ExpressionTree con = node.getCondition();
-        StatementTree  stm = node.getStatement(), tmp;
         Statements stmts = null;
         ForLoopTree loop;
         if (iniBlock != null) {
@@ -745,28 +770,22 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
             if (conExtr != null)
                 Editors.setCondition(loop, null);
         }
-        if (conExtr != null) {
-            Statements body, conStmts = conExtr.stmts;
-            conStmts.add(asm.at(con)
-                    .set(A, conExtr.expr)
-                    .empty(B)
-                    .brk(C, null).ifThenElse(A, B, C).get(A));
-            BlockTree cond = asm.at(con).block(conStmts).get();
-            if (stmExtr == null) {
-                body = new Statements(2);
-                body.add(cond);
-                body.add(node.getStatement());
-            } else {
-                body = stmExtr.exec(stm);
-                body.add(0, cond);
-            }
-            stm = asm.at(stm).block(body).get();
-        } else
-        if (stmExtr != null && (tmp = stmExtr.asStat(stm)) != null) {
-            stm = tmp;
-        }
+        StatementTree stm = getLoopStatement(con, conExtr, node.getStatement(), stmExtr);
         Editors.setStatement(loop, stm);
         return stmts == null ? null : new Extract(stmts);
+    }
+
+
+    @Override
+    public Extract visitWhileLoop(WhileLoopTree node, Names names) {
+        Extract conExtr  = scan(node.getCondition(), names);
+        Extract stmExtr  = scan(node.getStatement(), names);
+        if (conExtr == null && stmExtr == null) return null;
+        ExpressionTree con = node.getCondition();
+        if (conExtr != null) Editors.setCondition(node, asm.at(con).literal(true).get());
+        StatementTree stm = getLoopStatement(con, conExtr, node.getStatement(), stmExtr);
+        Editors.setStatement(node, stm);
+        return null;
     }
 
 

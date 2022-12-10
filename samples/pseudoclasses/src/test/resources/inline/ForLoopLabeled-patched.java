@@ -47,7 +47,7 @@ public class ForLoopLabeled {
                         break getByte3;
                     }
                 }
-                if (var4 == 0) ; else break;
+                if (!(var4 == 0)) break;
             }
             {
                 {

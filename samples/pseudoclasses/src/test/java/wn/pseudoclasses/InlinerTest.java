@@ -120,6 +120,16 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("ForLoopLabeled-patched")), norm(sc.get("ForLoopLabeled")));
     }
 
+    @Test
+    public void whileLoop() throws Exception {
+        SourceCollector sc = new SourceCollector("WhileLoop");
+        Assertions.assertTrue( compile(new Processor(sc), "WhileLoop", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("WhileLoop", out);
+        Assertions.assertEquals("getByte(0)\n0\ngetByte(0)\ngetByte(0)", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("WhileLoop-patched")), norm(sc.get("WhileLoop")));
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //
