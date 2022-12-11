@@ -111,6 +111,16 @@ public class InlinerTest extends PseudoTest {
     }
 
     @Test
+    public void forLoopLabeled() throws Exception {
+        SourceCollector sc = new SourceCollector("ForLoopLabeled");
+        Assertions.assertTrue( compile(new Processor(sc), "ForLoopLabeled", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("ForLoopLabeled", out);
+        Assertions.assertEquals("getByte(0)\n0\ngetByte(1)\n0\ngetByte(0)\ngetByte(0)", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("ForLoopLabeled-patched")), norm(sc.get("ForLoopLabeled")));
+    }
+
+    @Test
     public void foreachLoop() throws Exception {
         SourceCollector sc = new SourceCollector("ForeachLoop");
         Assertions.assertTrue( compile(new Processor(sc), "ForeachLoop", "IntAnatomy0") );
@@ -121,13 +131,13 @@ public class InlinerTest extends PseudoTest {
     }
 
     @Test
-    public void forLoopLabeled() throws Exception {
-        SourceCollector sc = new SourceCollector("ForLoopLabeled");
-        Assertions.assertTrue( compile(new Processor(sc), "ForLoopLabeled", "IntAnatomy0") );
+    public void foreachLoopLabeled() throws Exception {
+        SourceCollector sc = new SourceCollector("ForeachLoopLabeled");
+        Assertions.assertTrue( compile(new Processor(sc), "ForeachLoopLabeled", "IntAnatomy0") );
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        run("ForLoopLabeled", out);
-        Assertions.assertEquals("getByte(0)\n0\ngetByte(1)\n0\ngetByte(0)\ngetByte(0)", norm(out.toString(US_ASCII)));
-        Assertions.assertEquals(norm(contentOf("ForLoopLabeled-patched")), norm(sc.get("ForLoopLabeled")));
+        run("ForeachLoopLabeled", out);
+        Assertions.assertEquals("0\n1", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("ForeachLoopLabeled-patched")), norm(sc.get("ForeachLoopLabeled")));
     }
 
     @Test
