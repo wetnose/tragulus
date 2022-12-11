@@ -111,6 +111,16 @@ public class InlinerTest extends PseudoTest {
     }
 
     @Test
+    public void foreachLoop() throws Exception {
+        SourceCollector sc = new SourceCollector("ForeachLoop");
+        Assertions.assertTrue( compile(new Processor(sc), "ForeachLoop", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("ForeachLoop", out);
+        Assertions.assertEquals("0\n1", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("ForeachLoop-patched")), norm(sc.get("ForeachLoop")));
+    }
+
+    @Test
     public void forLoopLabeled() throws Exception {
         SourceCollector sc = new SourceCollector("ForLoopLabeled");
         Assertions.assertTrue( compile(new Processor(sc), "ForLoopLabeled", "IntAnatomy0") );

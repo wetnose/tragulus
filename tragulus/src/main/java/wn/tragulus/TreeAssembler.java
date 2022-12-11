@@ -542,6 +542,19 @@ public class TreeAssembler {
     }
 
 
+    public TreeAssembler newArray(ExpressionTree elemtype,
+                                  Iterable<? extends ExpressionTree> dims, Iterable<? extends ExpressionTree> elems) {
+        return newArray(0, elemtype, dims, elems);
+    }
+
+
+    public TreeAssembler newArray(int reg, ExpressionTree elemtype,
+                                  Iterable<? extends ExpressionTree> dims, Iterable<? extends ExpressionTree> elems) {
+        set(reg, M.NewArray((JCExpression) elemtype, JCUtils.toJCList(dims), JCUtils.toJCList(elems)));
+        return this;
+    }
+
+
     public TreeAssembler ident(String name) {
         return ident(0, name);
     }
@@ -798,6 +811,17 @@ public class TreeAssembler {
             Iterable<? extends StatementTree> init, ExpressionTree cond, Iterable<? extends StatementTree> step,
             StatementTree body) {
         set(reg, M.ForLoop(JCUtils.toJCList(init), (JCExpression) cond, JCUtils.toJCList(step), (JCStatement) body));
+        return this;
+    }
+
+
+    public TreeAssembler foreachLoop(VariableTree var, ExpressionTree expr, StatementTree body) {
+        return foreachLoop(0, var, expr, body);
+    }
+
+
+    public TreeAssembler foreachLoop(int reg, VariableTree var, ExpressionTree expr, StatementTree body) {
+        set(reg, M.ForeachLoop((JCVariableDecl) var, (JCExpression) expr, (JCStatement) body));
         return this;
     }
 

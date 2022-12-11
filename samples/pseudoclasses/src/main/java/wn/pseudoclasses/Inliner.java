@@ -586,7 +586,9 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     @Override
     public Extract visitTypeCast(TypeCastTree node, Names names) {
         TreePath path = getCurrentPath();
-        scan(node.getType(), names);
+        if (scan(node.getType(), names) != null) {
+            helper.printError("internal error #8", new TreePath(getCurrentPath(), node.getExpression()));
+        }
         Tree type = node.getType();
         Extension ext = pseudos.getExtension(helper.attributeType(new TreePath(path, type)));
         if (ext != null) {
@@ -594,7 +596,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
             pseudos.suppressDiagnostics(CANNOT_CAST, expr);
             Extract extr = scan(unmaskErroneousCasts(new TreePath(path, expr)), names);
             if (extr != null) return extr;
-            TypeMirror exprType = helper.attributeExpr(new TreePath(path, expr = node.getExpression()));
+            TypeMirror exprType = helper.attributeType(new TreePath(path, expr = node.getExpression()));
             TypeMirror replace = ext.wrappedType;
             if (exprType == replace) {
                 Editors.replaceTree(path, expr);
@@ -602,7 +604,66 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
                 Editors.setType(node, asm.at(type).type(replace).asExpr());
             }
         } else {
-            scan(node.getExpression(), names);
+            if (scan(node.getExpression(), names) != null) {
+                helper.printError("internal error #9", new TreePath(getCurrentPath(), node.getExpression()));
+            }
+        }
+        return null;
+    }
+
+
+    @Override
+    public Extract visitArrayType(ArrayTypeTree node, Names names) {
+        TreePath path = getCurrentPath();
+        Tree type = node.getType();
+        Extension ext = pseudos.getExtension(helper.attributeType(new TreePath(path, type)));
+        if (ext != null) {
+            Editors.setElementType(node, asm.at(type).type(ext.wrappedType).get());
+        }
+        return null;
+    }
+
+
+    @Override
+    public Extract visitNewArray(NewArrayTree node, Names names) {
+        Statements stmts = null;
+        ExpressionTree[] dims = node.getDimensions().toArray(new ExpressionTree[0]);
+        for (int i=0, count=dims.length; i < count; i++) {
+            Extract extr = scan(dims[i], names);
+            if (extr != null) {
+                if (stmts == null) {
+                    stmts = extr.stmts;
+                } else {
+                    stmts.addAll(extr.stmts);
+                }
+                dims[i] = extr.expr;
+            }
+        }
+        ExpressionTree[] init = node.getInitializers().toArray(new ExpressionTree[0]);
+        for (int i=0, count=init.length; i < count; i++) {
+            Extract extr = scan(init[i], names);
+            if (extr != null) {
+                if (stmts == null) {
+                    stmts = extr.stmts;
+                } else {
+                    stmts.addAll(extr.stmts);
+                }
+                init[i] = extr.expr;
+            }
+        }
+        if (scan(node.getType(), names) != null) {
+            helper.printError("internal error #10", new TreePath(getCurrentPath(), node.getType()));
+        }
+        ExpressionTree type = (ExpressionTree) node.getType();
+        Extension ext = pseudos.getExtension(helper.attributeType(new TreePath(getCurrentPath(), type)));
+        if (ext != null) {
+            type = asm.at(type).type(ext.wrappedType).get();
+        }
+        if (stmts != null) {
+            return new Extract(stmts, asm.at(node).newArray(type, Arrays.asList(dims), Arrays.asList(init)).asExpr());
+        } else
+        if (ext != null) {
+            Editors.setType(node, type);
         }
         return null;
     }
@@ -773,6 +834,46 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
         StatementTree stm = getLoopStatement(con, conExtr, node.getStatement(), stmExtr);
         Editors.setStatement(loop, stm);
         return stmts == null ? null : new Extract(stmts);
+    }
+
+
+    @Override
+    public Extract visitEnhancedForLoop(EnhancedForLoopTree node, Names names) {
+        Extract varExtr = scan(node.getVariable(), names);
+        Extract expExtr = scan(node.getExpression(), names);
+        Extract stmExtr = scan(node.getStatement(), names);
+        if (varExtr == null && expExtr == null && stmExtr == null) return null;
+        VariableTree var = node.getVariable();
+        if (varExtr != null) {
+            if (!varExtr.stmts.isEmpty()) {
+                helper.printError("internal error #6", new TreePath(getCurrentPath(), var));
+            }
+            if (varExtr.expr instanceof VariableTree) {
+                var = (VariableTree) varExtr.expr;
+            } else {
+                helper.printError("internal error #7", new TreePath(getCurrentPath(), var));
+            }
+            if (expExtr == null) {
+                Editors.setVariable(node, var);
+            }
+        }
+        StatementTree stm = node.getStatement();
+        if (expExtr != null) {
+            EnhancedForLoopTree loop =
+                    asm.foreachLoop(var, expExtr.expr, stmExtr != null ? stmExtr.asStat(stm) : stm).get();
+            Statements stmts = expExtr.stmts;
+            TreePath path = getCurrentPath();
+            LabeledStatementTree labeled = labeled(path);
+            if (labeled != null) {
+                stmts.addLabeled(labeled, labeled.getLabel(), loop);
+            } else {
+                stmts.add(loop);
+            }
+        } else
+        if (stmExtr != null) {
+            Editors.setStatement(node, stmExtr.asStat(stm));
+        }
+        return null;
     }
 
 

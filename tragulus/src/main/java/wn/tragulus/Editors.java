@@ -155,6 +155,10 @@ public class Editors {
         ((JCForLoop) node).cond = (JCExpression) condition;
     }
 
+    public static void setVariable(EnhancedForLoopTree node, VariableTree variable) {
+        ((JCEnhancedForLoop) node).var = (JCVariableDecl) variable;
+    }
+
     public static void setExpression(EnhancedForLoopTree node, ExpressionTree expression) {
         ((JCEnhancedForLoop) node).expr = (JCExpression) expression;
     }
@@ -201,6 +205,14 @@ public class Editors {
 
     public static void setType(NewArrayTree node, ExpressionTree type) {
         ((JCNewArray) node).elemtype = (JCExpression) type;
+    }
+
+    public static void setDimensions(NewArrayTree node, Collection<? extends ExpressionTree> dimensions) {
+        ((JCNewArray) node).dims = toJCList(dimensions);
+    }
+
+    public static void setInitializers(NewArrayTree node, Collection<? extends ExpressionTree> initializers) {
+        ((JCNewArray) node).elems = toJCList(initializers);
     }
 
     public static void setType(TypeCastTree node, ExpressionTree type) {
