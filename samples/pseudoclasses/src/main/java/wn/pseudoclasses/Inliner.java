@@ -65,10 +65,17 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     }
 
 
+    void scan(Tree tree, String ctrlCode, Names names) {
+        if (super.scan(tree, names) != null) {
+            helper.printError("internal error #" + ctrlCode, new TreePath(getCurrentPath(), tree));
+        }
+    }
+
+
     @Override
     public Extract reduce(Extract r1, Extract r2) {
         if (r1 != null || r2 != null) {
-            helper.printError("internal error #1", getCurrentPath());
+            helper.printError("internal error #reduce", getCurrentPath());
         }
         return null;
     }
@@ -94,7 +101,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
                     block.addAll(upd);
                     continue;
                 }
-                helper.printError("internal error #2", new TreePath(getCurrentPath(), stmt));
+                helper.printError("internal error #block", new TreePath(getCurrentPath(), stmt));
             }
             block.add(stmt);
         }
@@ -175,7 +182,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
                 TreePath classPath = JavacUtils.getEnclosingClass(path);
                 TypeMirror type = elem.getEnclosingElement().asType();
                 if (JavacUtils.typeOf(classPath.getLeaf()) != type) {
-                    helper.printError("internal error #3", path);
+                    helper.printError("internal error #inv", path);
                 }
             } else {
                 self = peelExpr(((MemberSelectTree) select).getExpression());
@@ -426,6 +433,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     @Override
     public Extract visitVariable(VariableTree node, Names names) {
         TreePath path = getCurrentPath();
+        scan(node.getType(), "var", names);
         Tree type = node.getType();
         Extension ext = pseudos.getExtension(helper.typeOf(path, type));
         if (ext != null) {
@@ -586,9 +594,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     @Override
     public Extract visitTypeCast(TypeCastTree node, Names names) {
         TreePath path = getCurrentPath();
-        if (scan(node.getType(), names) != null) {
-            helper.printError("internal error #8", new TreePath(getCurrentPath(), node.getExpression()));
-        }
+        scan(node.getType(), "type", names);
         Tree type = node.getType();
         Extension ext = pseudos.getExtension(helper.attributeType(new TreePath(path, type)));
         if (ext != null) {
@@ -604,9 +610,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
                 Editors.setType(node, asm.at(type).type(replace).asExpr());
             }
         } else {
-            if (scan(node.getExpression(), names) != null) {
-                helper.printError("internal error #9", new TreePath(getCurrentPath(), node.getExpression()));
-            }
+            scan(node.getExpression(), "cast", names);
         }
         return null;
     }
@@ -615,6 +619,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     @Override
     public Extract visitArrayType(ArrayTypeTree node, Names names) {
         TreePath path = getCurrentPath();
+        scan(node.getType(), "array", names);
         Tree type = node.getType();
         Extension ext = pseudos.getExtension(helper.attributeType(new TreePath(path, type)));
         if (ext != null) {
@@ -624,10 +629,13 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     }
 
 
+    private static final ExpressionTree[] NO_EXPR = {};
+
     @Override
     public Extract visitNewArray(NewArrayTree node, Names names) {
         Statements stmts = null;
-        ExpressionTree[] dims = node.getDimensions().toArray(new ExpressionTree[0]);
+        List<? extends ExpressionTree> tmp;
+        ExpressionTree[] dims = (tmp = node.getDimensions()) == null ? NO_EXPR : tmp.toArray(NO_EXPR);
         for (int i=0, count=dims.length; i < count; i++) {
             Extract extr = scan(dims[i], names);
             if (extr != null) {
@@ -639,7 +647,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
                 dims[i] = extr.expr;
             }
         }
-        ExpressionTree[] init = node.getInitializers().toArray(new ExpressionTree[0]);
+        ExpressionTree[] init = (tmp = node.getInitializers()) == null ? NO_EXPR : tmp.toArray(NO_EXPR);
         for (int i=0, count=init.length; i < count; i++) {
             Extract extr = scan(init[i], names);
             if (extr != null) {
@@ -651,11 +659,10 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
                 init[i] = extr.expr;
             }
         }
-        if (scan(node.getType(), names) != null) {
-            helper.printError("internal error #10", new TreePath(getCurrentPath(), node.getType()));
-        }
+        scan(node.getType(), "new", names);
         ExpressionTree type = (ExpressionTree) node.getType();
-        Extension ext = pseudos.getExtension(helper.attributeType(new TreePath(getCurrentPath(), type)));
+        Extension ext = type == null ? null :
+                pseudos.getExtension(helper.attributeType(new TreePath(getCurrentPath(), type)));
         if (ext != null) {
             type = asm.at(type).type(ext.wrappedType).get();
         }
@@ -846,12 +853,12 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
         VariableTree var = node.getVariable();
         if (varExtr != null) {
             if (!varExtr.stmts.isEmpty()) {
-                helper.printError("internal error #6", new TreePath(getCurrentPath(), var));
+                helper.printError("internal error #loopstat", new TreePath(getCurrentPath(), var));
             }
             if (varExtr.expr instanceof VariableTree) {
                 var = (VariableTree) varExtr.expr;
             } else {
-                helper.printError("internal error #7", new TreePath(getCurrentPath(), var));
+                helper.printError("internal error #loopvar", new TreePath(getCurrentPath(), var));
             }
             if (expExtr == null) {
                 Editors.setVariable(node, var);

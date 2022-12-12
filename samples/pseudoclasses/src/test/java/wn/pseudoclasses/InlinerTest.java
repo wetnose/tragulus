@@ -101,6 +101,16 @@ public class InlinerTest extends PseudoTest {
     }
 
     @Test
+    public void newArray() throws Exception {
+        SourceCollector sc = new SourceCollector("NewArray");
+        Assertions.assertTrue( compile(new Processor(sc), "NewArray", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("NewArray", out);
+        Assertions.assertEquals("[1, 2]\n[[1], [2]]\n[[0, 0, 0], [0, 0, 0]]", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("NewArray-patched")), norm(sc.get("NewArray")));
+    }
+
+    @Test
     public void forLoop() throws Exception {
         SourceCollector sc = new SourceCollector("ForLoop");
         Assertions.assertTrue( compile(new Processor(sc), "ForLoop", "IntAnatomy0") );
