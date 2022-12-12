@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 import static wn.pseudoclasses.Pseudos.Err.CANNOT_CAST;
 
@@ -547,10 +548,9 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     }
 
 
-    @Override
-    public Extract visitAssignment(AssignmentTree node, Names names) {
-        Extract varExtr = scan(node.getVariable(), names);
-        Extract expExtr = scan(node.getExpression(), names);
+    Extract assignment(Tree node, Supplier<ExpressionTree> varFunc, Supplier<ExpressionTree> exprFunc, Names names) {
+        Extract varExtr = scan(varFunc.get(), names);
+        Extract expExtr = scan(exprFunc.get(), names);
         if (varExtr == null && expExtr == null) return null;
         Statements stmts = null;
         ExpressionTree var;
@@ -559,7 +559,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
             stmts = varExtr.stmts;
             var = varExtr.expr;
         } else {
-            var = node.getVariable();
+            var = varFunc.get();
         }
         if (expExtr != null) {
             if (stmts == null) {
@@ -569,15 +569,21 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
             }
             expr = expExtr.expr;
         } else {
-            expr = node.getExpression();
+            expr = exprFunc.get();
         }
-        return new Extract(stmts, asm.at(node).set(var).assign(expr).asExpr());
+        return new Extract(stmts, asm.at(node).set(var).assign(node.getKind(), expr).asExpr());
+    }
+
+
+    @Override
+    public Extract visitAssignment(AssignmentTree node, Names names) {
+        return assignment(node, node::getVariable, node::getExpression, names);
     }
 
 
     @Override
     public Extract visitCompoundAssignment(CompoundAssignmentTree node, Names names) {
-        return super.visitCompoundAssignment(node, names);
+        return assignment(node, node::getVariable, node::getExpression, names);
     }
 
 

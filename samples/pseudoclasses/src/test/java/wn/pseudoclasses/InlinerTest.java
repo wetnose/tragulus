@@ -170,6 +170,16 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("DoWhileLoop-patched")), norm(sc.get("DoWhileLoop")));
     }
 
+    @Test
+    public void assign() throws Exception {
+        SourceCollector sc = new SourceCollector("Assign");
+        Assertions.assertTrue( compile(new Processor(sc), "Assign", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("Assign", out);
+        Assertions.assertEquals("6", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("Assign-patched")), norm(sc.get("Assign")));
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //
