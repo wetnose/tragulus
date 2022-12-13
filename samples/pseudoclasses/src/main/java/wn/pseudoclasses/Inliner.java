@@ -15,6 +15,8 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -598,6 +600,21 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
 
 
     @Override
+    public Extract visitInstanceOf(InstanceOfTree node, Names names) {
+        Extract extr = scan(node.getExpression(), names);
+        TreePath path = new TreePath(getCurrentPath(), node.getType());
+        TypeMirror type = helper.attributeType(path);
+        while (type.getKind() == TypeKind.ARRAY) {
+            type = ((ArrayType) type).getComponentType();
+        }
+        if (pseudos.getExtension(type) != null) {
+            helper.printError("regular class expected", path);
+        }
+        return extr == null ? null : new Extract(extr.stmts, asm.at(node).test(extr.expr, node.getType()).asExpr());
+    }
+
+
+    @Override
     public Extract visitTypeCast(TypeCastTree node, Names names) {
         TreePath path = getCurrentPath();
         scan(node.getType(), "type", names);
@@ -920,7 +937,6 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
             return null;
         }
     }
-
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Routines

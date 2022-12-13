@@ -3,6 +3,9 @@ package wn.pseudoclasses;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticCollector;
+import javax.tools.JavaFileObject;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.util.HashMap;
@@ -178,6 +181,27 @@ public class InlinerTest extends PseudoTest {
         run("Assign", out);
         Assertions.assertEquals("6", norm(out.toString(US_ASCII)));
         Assertions.assertEquals(norm(contentOf("Assign-patched")), norm(sc.get("Assign")));
+    }
+
+    @Test
+    public void instanceOfPseudo() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertFalse( compile(new Processor(), collector, "InstanceOfPseudo", "IntAnatomy0") );
+        assertReport(collector, Diagnostic.Kind.ERROR, "regular class expected");
+    }
+
+    @Test
+    public void instanceOfPseudoArray() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertFalse( compile(new Processor(), collector, "InstanceOfPseudoArray", "IntAnatomy0") );
+        assertReport(collector, Diagnostic.Kind.ERROR, "regular class expected");
+    }
+
+    @Test
+    public void instanceOfPseudoArray2() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertFalse( compile(new Processor(), collector, "InstanceOfPseudoArray2", "IntAnatomy0") );
+        assertReport(collector, Diagnostic.Kind.ERROR, "regular class expected");
     }
 
 
