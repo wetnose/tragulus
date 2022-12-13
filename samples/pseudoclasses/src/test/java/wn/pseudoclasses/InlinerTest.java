@@ -204,6 +204,16 @@ public class InlinerTest extends PseudoTest {
         assertReport(collector, Diagnostic.Kind.ERROR, "regular class expected");
     }
 
+    @Test
+    public void instanceOf() throws Exception {
+        SourceCollector sc = new SourceCollector("InstanceOf");
+        Assertions.assertTrue( compile(new Processor(sc), "InstanceOf", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("InstanceOf", out);
+        Assertions.assertEquals("ok", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("InstanceOf-patched")), norm(sc.get("InstanceOf")));
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //
