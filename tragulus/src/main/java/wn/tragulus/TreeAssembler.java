@@ -690,6 +690,17 @@ public class TreeAssembler {
     }
 
 
+    public TreeAssembler test(ExpressionTree expr, Tree type) {
+        return test(0, expr, type);
+    }
+
+
+    public TreeAssembler test(int reg, ExpressionTree expr, Tree type) {
+        set(reg, M.TypeTest((JCExpression) expr, (JCTree) type));
+        return this;
+    }
+
+
     public TreeAssembler cast(Tree type) {
         return cast(0, type);
     }
