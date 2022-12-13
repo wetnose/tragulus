@@ -214,6 +214,26 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("InstanceOf-patched")), norm(sc.get("InstanceOf")));
     }
 
+    @Test
+    public void badBinary() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertFalse( compile(new Processor(), collector, "BadBinary", "IntAnatomy0") );
+        assertReport(collector, Diagnostic.Kind.ERROR,
+                "bad operand types for binary operator '+'\n" +
+                "  first type:  IntAnatomy0\n" +
+                "  second type: int");
+    }
+
+    @Test
+    public void binary() throws Exception {
+        SourceCollector sc = new SourceCollector("Binary");
+        Assertions.assertTrue( compile(new Processor(sc), "Binary", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("Binary", out);
+        Assertions.assertEquals("17", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("Binary-patched")), norm(sc.get("Binary")));
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //

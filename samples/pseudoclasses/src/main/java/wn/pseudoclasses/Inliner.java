@@ -223,11 +223,11 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
                 expr = null;
             }
             if (!isAtom(expr)) {
-                if (mthd == null || arg instanceof LiteralTree) {
-                    args[i] = arg;
+                if (expr == null) expr = asm.copyOf(arg);
+                if (mthd == null || expr instanceof LiteralTree) {
+                    args[i] = expr;
                 } else {
                     TypeMirror type = mthd.params[i].asType();
-                    if (expr == null) expr = asm.copyOf(arg);
                     Name var = stmts.addDecl(arg, type, names, "var", expr);
                     args[i] = asm.identOf(var);
                 }
