@@ -390,6 +390,7 @@ class Pseudos {
         boolean decompose() {
             if (status == ST_CREATED) {
                 status = ST_VALID;
+                boolean prim = wrappedType.getKind().isPrimitive();
                 ClassTree classTree = (ClassTree) path.getLeaf();
                 for (Tree member : classTree.getMembers()) {
                     TreePath path = TreePath.getPath(this.path, member);
@@ -398,7 +399,11 @@ class Pseudos {
                             ExecutableElement elem = helper.asElement(path);
                             if (elem.getKind() == CONSTRUCTOR) {
                                 if (elements.getOrigin(elem) == MANDATED) break;
-                                constructors.add(new Method(this, path));
+                                if (prim) {
+                                    helper.printError("prohibited constructor declaration", path);
+                                } else {
+                                    constructors.add(new Method(this, path));
+                                }
                             } else {
                                 methods.add(new Method(this, path));
                             }
@@ -469,9 +474,6 @@ class Pseudos {
         boolean decompose() {
             if (status == ST_CREATED) {
                 super.decompose();
-                for (Method c : constructors) {
-                    helper.printError("prohibited constructor declaration", c.path);
-                }
                 for (Method m : methods) {
                     Element elem = trees.getElement(m.path);
                     if (!helper.getOverriddenMethods(elem).isEmpty()) {
@@ -501,17 +503,7 @@ class Pseudos {
         boolean decompose() {
             if (status == ST_CREATED) {
                 super.decompose();
-                for (Method c : constructors) {
-                    TreePath path = c.path;
-                    MethodTree mth = (MethodTree) c.path.getLeaf();
-                    List<? extends Tree> params = mth.getParameters();
-                    int count = params.size();
-                    if (count != 1) {
-                        helper.printError("one parameter expected",
-                                count != 0 ? new TreePath(path, params.get(1)) : path);
-                        status = ST_INVALID;
-                    }
-                }
+                //todo
             }
             return status == ST_VALID;
         }

@@ -87,10 +87,24 @@ public class ValidatorTest extends PseudoTest {
 
 
     @Test
+    public void goodSubtypeConstructor0() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertTrue( compile(new Processor(), collector, "GoodSubtypeConstructor0") );
+    }
+
+
+    @Test
+    public void goodSubtypeConstructor1() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertTrue( compile(new Processor(), collector, "GoodSubtypeConstructor1") );
+    }
+
+
+    @Test
     public void badWrapperConstructor0() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
         Assertions.assertFalse( compile(new Processor(), collector, "BadWrapperConstructor0") );
-        assertReport(collector, Diagnostic.Kind.ERROR, "one parameter expected");
+        assertReport(collector, Diagnostic.Kind.ERROR, "prohibited constructor declaration");
     }
 
 
@@ -98,14 +112,21 @@ public class ValidatorTest extends PseudoTest {
     public void badWrapperConstructor2() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
         Assertions.assertFalse( compile(new Processor(), collector, "BadWrapperConstructor2") );
-        assertReport(collector, Diagnostic.Kind.ERROR, "one parameter expected");
+        assertReport(collector, Diagnostic.Kind.ERROR, "prohibited constructor declaration");
     }
 
 
     @Test
-    public void goodWrapperConstructor() throws Exception {
+    public void goodWrapperConstructor0() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
-        Assertions.assertTrue( compile(new Processor(), collector, "GoodWrapperConstructor") );
+        Assertions.assertTrue( compile(new Processor(), collector, "GoodWrapperConstructor0") );
+    }
+
+
+    @Test
+    public void goodWrapperConstructor1() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertTrue( compile(new Processor(), collector, "GoodWrapperConstructor1") );
     }
 
 
