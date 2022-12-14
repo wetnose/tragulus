@@ -626,8 +626,9 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
         Extension ext = pseudos.getExtension(helper.attributeType(new TreePath(path, type)));
         if (ext != null) {
             ExpressionTree expr = node.getExpression();
-            pseudos.suppressDiagnostics(CANNOT_CAST, expr);
-            Extract extr = scan(unmaskErroneousCasts(new TreePath(path, expr)), names);
+            TreePath expPath = new TreePath(path, expr);
+            pseudos.suppressDiagnostics(CANNOT_CAST, expPath);
+            Extract extr = scan(unmaskErroneousCasts(expPath), names);
             if (extr != null) return extr;
             TypeMirror exprType = helper.attributeType(new TreePath(path, expr = node.getExpression()));
             TypeMirror replace = ext.wrappedType;
@@ -810,7 +811,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
 //                helper.printError("constant expression expected", getCurrentPath());
                 expr = extr.expr;
             } else {
-                pseudos.suppressDiagnostics(CONST_EXPR_REQUIRED, node.getExpression());
+                pseudos.suppressDiagnostics(CONST_EXPR_REQUIRED, new TreePath(getCurrentPath(), node.getExpression()));
             }
             Editors.setExpression(node, expr);
         }

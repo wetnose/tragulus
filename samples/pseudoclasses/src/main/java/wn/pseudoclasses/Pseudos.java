@@ -135,19 +135,16 @@ class Pseudos {
     }
 
 
-    void suppressDiagnostics(Err err, Predicate<Diagnostic<JavaFileObject>> filter) {
-        helper.filterDiagnostics(diag -> diag.getCode().equals(err.code) && filter.test(diag));
+    void suppressDiagnostics(Err err, TreePath path) {
+        suppressDiagnostics(err, path.getCompilationUnit(), path.getLeaf());
     }
 
 
-    void suppressDiagnostics(Err err, JavaFileObject src) {
-        helper.filterDiagnostics(diag -> diag.getCode().equals(err.code) && diag.getSource() == src);
-    }
-
-
-    void suppressDiagnostics(Err err, Tree tree) {
+    void suppressDiagnostics(Err err, CompilationUnitTree unit, Tree tree) {
         helper.filterDiagnostics(diag ->
-                diag.getCode().equals(err.code) && diag.getPosition() == ((JCTree) tree).pos);
+                diag.getCode().equals(err.code)
+                        && diag.getSource() == unit.getSourceFile()
+                        && diag.getPosition() == ((JCTree) tree).pos);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -320,13 +317,17 @@ class Pseudos {
             }
         }
 
-        if (baseTree.getKind() == Kind.PRIMITIVE_TYPE) suppressDiagnostics(Err.PRIM_TYPE_ARG, baseTree);
+        CompilationUnitTree unit = path.getCompilationUnit();
+
+        if (baseTree.getKind() == Kind.PRIMITIVE_TYPE)
+            suppressDiagnostics(Err.PRIM_TYPE_ARG, unit, baseTree);
         TypeMirror baseType = trees.getTypeMirror(TreePath.getPath(path, baseTree));
         if (baseType == null) return null;
 
         if (!baseType.getKind().isPrimitive()) {
             ClassSymbol baseElem = helper.asElement(baseType);
-            if ((baseElem.flags() & FINAL) != 0) suppressDiagnostics(Err.INHERIT_FROM_FINAL, extendsClause);
+            if ((baseElem.flags() & FINAL) != 0)
+                suppressDiagnostics(Err.INHERIT_FROM_FINAL, unit, extendsClause);
             if (isMarkedAsPseudo(baseElem)) {
                 helper.printError("prohibited pseudoclass inheritance", type);
                 return null;
