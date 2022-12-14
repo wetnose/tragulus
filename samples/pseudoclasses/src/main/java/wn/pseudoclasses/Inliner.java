@@ -1131,6 +1131,26 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
             return stmts.size() == 1 ? stmts.get(0) : asm.block(V, stmts).get(V);
         }
 
+        /**
+         * Reduces a block like
+         * <pre>{@code
+         * int x, y;
+         * {
+         *    x = 12;
+         *    //int y = 3; // prohibited
+         *    //x += y;    // prohibited
+         * }
+         * label: {
+         *   y = x + 3;
+         *   break label;
+         * }
+         * return y;
+         * }</pre>
+         * To a single expression like
+         * <pre>{@code
+         * return 12 + 3;
+         * }</pre>
+         */
         ExpressionTree reduce() {
 
             class Block {
@@ -1161,6 +1181,12 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
                 if (stack != null && !stack.isEmpty() && (block = stack.peek()).dec()) stack.pop();
                 Name name;
                 ExpressionTree init;
+
+                // - a var should be declared only once
+                // - a var should be assigned only once
+                // - a var should be used only once
+                // - a block consisted of variable declaration/assignment statements could be expanded
+                // - a labeled statement could be expanded, but a break of such block must be the last statement in it
                 validation: {
                     if (stmt instanceof VariableTree) {
                         VariableTree var = (VariableTree) stmt;
