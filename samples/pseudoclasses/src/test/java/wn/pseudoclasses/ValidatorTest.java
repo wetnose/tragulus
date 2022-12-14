@@ -90,7 +90,7 @@ public class ValidatorTest extends PseudoTest {
     public void badWrapperConstructor0() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
         Assertions.assertFalse( compile(new Processor(), collector, "BadWrapperConstructor0") );
-        assertReport(collector, Diagnostic.Kind.ERROR, "prohibited constructor declaration");
+        assertReport(collector, Diagnostic.Kind.ERROR, "one parameter expected");
     }
 
 
@@ -98,7 +98,7 @@ public class ValidatorTest extends PseudoTest {
     public void badWrapperConstructor2() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
         Assertions.assertFalse( compile(new Processor(), collector, "BadWrapperConstructor2") );
-        assertReport(collector, Diagnostic.Kind.ERROR, "prohibited constructor declaration");
+        assertReport(collector, Diagnostic.Kind.ERROR, "one parameter expected");
     }
 
 

@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -503,8 +504,11 @@ class Pseudos {
                 for (Method c : constructors) {
                     TreePath path = c.path;
                     MethodTree mth = (MethodTree) c.path.getLeaf();
-                    if (mth.getParameters().size() != 1) {
-                        helper.printError("prohibited constructor declaration", path);
+                    List<? extends Tree> params = mth.getParameters();
+                    int count = params.size();
+                    if (count != 1) {
+                        helper.printError("one parameter expected",
+                                count != 0 ? new TreePath(path, params.get(1)) : path);
                         status = ST_INVALID;
                     }
                 }
