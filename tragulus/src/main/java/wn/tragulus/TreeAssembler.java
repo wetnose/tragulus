@@ -706,9 +706,19 @@ public class TreeAssembler {
     }
 
 
+    public TreeAssembler cast(Tree type, ExpressionTree expr) {
+        return cast(0, type, expr);
+    }
+
+
     public TreeAssembler cast(int reg, Tree type) {
         JCExpression expr = get(reg, JCExpression.class);
-        set(reg, M.TypeCast((JCTree) type, expr));
+        return cast(reg, type, expr);
+    }
+
+
+    public TreeAssembler cast(int reg, Tree type, ExpressionTree expr) {
+        set(reg, M.TypeCast((JCTree) type, (JCExpression) expr));
         return this;
     }
 
@@ -925,6 +935,11 @@ public class TreeAssembler {
     }
 
 
+    public TreeAssembler uno(Tree.Kind op, ExpressionTree expr) {
+        return uno(op, 0, expr);
+    }
+
+
     public TreeAssembler uno(Tree.Kind op, int reg) {
         return uno(op, reg, get(reg, ExpressionTree.class));
     }
@@ -938,6 +953,11 @@ public class TreeAssembler {
     }
 
 
+    public TreeAssembler bin(Tree.Kind op, ExpressionTree lhs, ExpressionTree rhs) {
+        return bin(op, 0, lhs, rhs);
+    }
+
+
     public TreeAssembler bin(Tree.Kind op, int lhsReg, int rhsReg) {
         return bin(op, lhsReg, get(rhsReg, ExpressionTree.class));
     }
@@ -948,6 +968,14 @@ public class TreeAssembler {
         JCExpression lhs = get(lhsReg, JCExpression.class);
         Tag tag = JavacUtils.kindToTag(op);
         set(lhsReg, M.Binary(tag, lhs, (JCExpression) rhs));
+        return this;
+    }
+
+
+    public TreeAssembler bin(Tree.Kind op, int reg, ExpressionTree lhs, ExpressionTree rhs) {
+        if (op.asInterface() != BinaryTree.class) throw new IllegalArgumentException();
+        Tag tag = JavacUtils.kindToTag(op);
+        set(reg, M.Binary(tag, (JCExpression) lhs, (JCExpression) rhs));
         return this;
     }
 

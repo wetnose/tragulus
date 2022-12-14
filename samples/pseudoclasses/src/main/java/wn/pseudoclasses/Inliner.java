@@ -3,6 +3,7 @@ package wn.pseudoclasses;
 import com.sun.source.tree.*;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
+import com.sun.source.util.TreeScanner;
 import com.sun.source.util.Trees;
 import wn.pseudoclasses.Pseudos.Extension;
 import wn.tragulus.Editors;
@@ -24,12 +25,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 import static wn.pseudoclasses.Pseudos.Err.CANNOT_CAST;
+import static wn.pseudoclasses.Pseudos.Err.CONST_EXPR_REQUIRED;
 
 /**
  * Alexander A. Solovioff
@@ -781,6 +785,44 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
 
 
     @Override
+    public Extract visitSwitch(SwitchTree node, Names names) {
+        Extract extr = scan(node.getExpression(), names);
+        for (CaseTree c : node.getCases()) {
+            scan(c, "case", names);
+        }
+        if (extr == null) return null;
+        Editors.setExpression(node, null);
+        node = asm.copyOf(node);
+        Editors.setExpression(node, extr.expr);
+        Statements stmts = extr.stmts;
+        stmts.add(node);
+        return new Extract(asm.at(node).block(stmts).asStat());
+    }
+
+
+    @Override
+    public Extract visitCase(CaseTree node, Names names) {
+        Extract extr = scan(node.getExpression(), names);
+        if (extr != null) {
+            ExpressionTree expr = extr.reduce();
+            if (expr == null) {
+                //todo full precalculation support req.
+//                helper.printError("constant expression expected", getCurrentPath());
+                expr = extr.expr;
+            } else {
+                pseudos.suppressDiagnostics(CONST_EXPR_REQUIRED, node.getExpression());
+            }
+            Editors.setExpression(node, expr);
+        }
+        Statements stmts = processBlock(node.getStatements(), names);
+        if (stmts != null) {
+            Editors.setStatements(node, stmts);
+        }
+        return null;
+    }
+
+
+    @Override
     public Extract visitLabeledStatement(LabeledStatementTree node, Names names) {
         StatementTree stmt = node.getStatement();
         Extract extr = scan(stmt, names);
@@ -1086,6 +1128,128 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
             Statements stmts = exec(pos);
             if (stmts == null) return null;
             return stmts.size() == 1 ? stmts.get(0) : asm.block(V, stmts).get(V);
+        }
+
+        ExpressionTree reduce() {
+
+            class Block {
+                final Name label;
+                int left;
+                Block(Name label, int left) {
+                    this.label = label;
+                    this.left = left;
+                }
+                boolean add(int count) {
+                    boolean empty = left == 0;
+                    left += count;
+                    return empty;
+                }
+                boolean dec() {
+                    return --left == 0;
+                }
+            }
+
+            Map<Name,ExpressionTree> vars = new HashMap<>();
+            Set<Name> used = new HashSet<>();
+            TreeScanner<ExpressionTree,Void> scanner = null;
+            LinkedList<StatementTree> queue = new LinkedList<>(stmts);
+            LinkedList<Block> stack = null;
+            StatementTree stmt;
+            while ((stmt = queue.poll()) != null) {
+                Block block = null;
+                if (stack != null && !stack.isEmpty() && (block = stack.peek()).dec()) stack.pop();
+                Name name;
+                ExpressionTree init;
+                validation: {
+                    if (stmt instanceof VariableTree) {
+                        VariableTree var = (VariableTree) stmt;
+                        name = var.getName();
+                        init = var.getInitializer();
+                        if (name == null || vars.containsKey(name)) return null;
+                        if (init == null) {
+                            vars.put(name, null);
+                            continue;
+                        }
+                        break validation;
+                    }
+                    if (stmt instanceof ExpressionStatementTree) {
+                        ExpressionTree expr = ((ExpressionStatementTree) stmt).getExpression();
+                        name = JavacUtils.getAssignableVariable(expr);
+                        if (name == null || vars.get(name) != null) return null;
+                        switch (expr.getKind()) {
+                            case ASSIGNMENT:
+                                init = ((AssignmentTree) expr).getExpression();
+                                break validation;
+                        }
+                        return null;
+                    }
+                    if (stmt instanceof LabeledStatementTree) {
+                        if (stack == null) stack = new LinkedList<>();
+                        LabeledStatementTree labeled = (LabeledStatementTree) stmt;
+                        stack.push(new Block(labeled.getLabel(), 1));
+                        queue.addFirst(labeled.getStatement());
+                        continue;
+                    }
+                    if (stmt instanceof BlockTree) {
+                        List<? extends StatementTree> stmts = ((BlockTree) stmt).getStatements();
+                        queue.addAll(0, stmts);
+                        if (block != null) {
+                            if (block.add(stmts.size())) stack.push(block);
+                        }
+                        continue;
+                    }
+                    if (stmt instanceof BreakTree) {
+                        if (block != null && block.left == 0 && block.label == ((BreakTree) stmt).getLabel()) continue;
+                    }
+                    return null;
+                }
+                if (scanner == null)
+                    scanner = new TreeScanner<>() {
+                        @Override
+                        public ExpressionTree visitLiteral(LiteralTree node, Void unused) {
+                            return node;
+                        }
+                        @Override
+                        public ExpressionTree visitIdentifier(IdentifierTree node, Void unused) {
+                            Name name = node.getName();
+                            ExpressionTree expr = vars.get(name);
+                            if (expr == null) return node;
+                            return used.add(name) ? expr : null;
+                        }
+                        @Override
+                        public ExpressionTree visitParenthesized(ParenthesizedTree node, Void unused) {
+                            ExpressionTree expr = scan(node.getExpression(), null);
+                            if (expr == node.getExpression()) return node;
+                            return asm.at(node).par(expr).get();
+                        }
+                        @Override
+                        public ExpressionTree visitTypeCast(TypeCastTree node, Void unused) {
+                            ExpressionTree expr = scan(node.getExpression(), null);
+                            if (expr == node.getExpression()) return node;
+                            return asm.at(node).cast(node.getType(), expr).get();
+                        }
+                        @Override
+                        public ExpressionTree visitUnary(UnaryTree node, Void unused) {
+                            if (JavacUtils.isAssignment(node.getKind())) return null;
+                            ExpressionTree expr = scan(node.getExpression(), null);
+                            if (expr == null) return null;
+                            if (expr == node.getExpression()) return node;
+                            return asm.at(node).uno(node.getKind(), expr).get();
+                        }
+                        @Override
+                        public ExpressionTree visitBinary(BinaryTree node, Void unused) {
+                            ExpressionTree lhs = scan(node.getLeftOperand(), null);
+                            ExpressionTree rhs = scan(node.getRightOperand(), null);
+                            if (lhs == null || rhs == null) return null;
+                            if (lhs == node.getLeftOperand() && rhs == node.getRightOperand()) return node;
+                            return asm.at(node).bin(node.getKind(), lhs, rhs).get();
+                        }
+                    };
+                ExpressionTree expr = scanner.scan(init, null);
+                if (expr == null) return null;
+                vars.put(name, expr);
+            }
+            return scanner != null ? scanner.scan(expr, null) : expr;
         }
     }
 

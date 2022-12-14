@@ -270,6 +270,26 @@ public class InlinerTest extends PseudoTest {
                 "  found:    value");
     }
 
+    @Test
+    public void switchCase() throws Exception {
+        SourceCollector sc = new SourceCollector("Switch");
+        Assertions.assertTrue( compile(new Processor(sc), "Switch", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("Switch", out);
+        Assertions.assertEquals("10", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("Switch-patched")), norm(sc.get("Switch")));
+    }
+
+    @Test
+    public void badSwitch() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertFalse( compile(new Processor(), collector, "BadSwitch", "IntAnatomy0") );
+        for (Diagnostic<?> diag : collector.getDiagnostics()) {
+            System.out.println(diag.getMessage(null));
+        }
+        assertReport(collector, Diagnostic.Kind.ERROR, "constant expression required");
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //

@@ -33,6 +33,10 @@ public final class IntAnatomy0 extends Wrapper<int> {
         return this.value >> (index << 3) & 0xff;
     }
 
+    int getByte2(int index) {
+        return this.value >> (index << 3) & 0xff;
+    }
+
     void setByte(int index, int value) {
         int shift = index << 3;
         this.value &= ~(0xff << shift);

@@ -11,6 +11,7 @@ import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
+import com.sun.tools.javac.tree.JCTree;
 import wn.tragulus.JavacUtils;
 import wn.tragulus.ProcessingHelper;
 
@@ -29,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -55,6 +55,7 @@ class Pseudos {
         PRIM_TYPE_ARG        ("compiler.err.type.found.req"),
         OVERRIDES_OBJ_MEMBER ("compiler.err.default.overrides.object.member"),
         CANNOT_CAST          ("compiler.err.prob.found.req"),
+        CONST_EXPR_REQUIRED  ("compiler.err.const.expr.req"),
 
         ;
 
@@ -145,7 +146,8 @@ class Pseudos {
 
 
     void suppressDiagnostics(Err err, Tree tree) {
-        helper.filterDiagnostics(diag -> diag.getCode().equals(err.code) && JavacUtils.getTree(diag) == tree);
+        helper.filterDiagnostics(diag ->
+                diag.getCode().equals(err.code) && diag.getPosition() == ((JCTree) tree).pos);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
