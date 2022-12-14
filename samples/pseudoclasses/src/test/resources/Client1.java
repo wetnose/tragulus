@@ -1,8 +1,10 @@
 public class Client1 {
 
     public void test1() {
-        IntAnatomy0 an = (IntAnatomy0) readInt();
-        System.out.println(an);
+        System.out.println("Hello!");
+        if (Integer.valueOf(((IntAnatomy0) 15).get()) instanceof Integer) {
+            System.out.println("ok");
+        }
     }
 
 

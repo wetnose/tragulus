@@ -455,7 +455,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     }
 
 
-    private BinaryTree uno(Tree.Kind kind, ExpressionTree arg) {
+    private UnaryTree uno(Tree.Kind kind, ExpressionTree arg) {
         return asm.uno(kind, V, asm.copyOf(arg)).get(V);
     }
 

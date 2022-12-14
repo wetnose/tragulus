@@ -234,6 +234,42 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("Binary-patched")), norm(sc.get("Binary")));
     }
 
+    @Test
+    public void badUnary() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertFalse( compile(new Processor(), collector, "BadUnary", "IntAnatomy0") );
+        assertReport(collector, Diagnostic.Kind.ERROR, "bad operand type IntAnatomy0 for unary operator '-'");
+    }
+
+    @Test
+    public void unary() throws Exception {
+        SourceCollector sc = new SourceCollector("Unary");
+        Assertions.assertTrue( compile(new Processor(sc), "Unary", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("Unary", out);
+        Assertions.assertEquals("-15", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("Unary-patched")), norm(sc.get("Unary")));
+    }
+
+    @Test
+    public void badPlusPlus() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertFalse( compile(new Processor(), collector, "BadPlusPlus", "IntAnatomy0") );
+        assertReport(collector, Diagnostic.Kind.ERROR, "bad operand type IntAnatomy0 for unary operator '++'");
+    }
+
+    @Test
+    public void badPlusPlus2() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertFalse( compile(new Processor(), collector, "BadPlusPlus2", "IntAnatomy0") );
+        for (Diagnostic<?> diag : collector.getDiagnostics()) {
+            System.out.println(diag.getMessage(null));
+        }
+        assertReport(collector, Diagnostic.Kind.ERROR, "unexpected type\n" +
+                "  required: variable\n" +
+                "  found:    value");
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //
