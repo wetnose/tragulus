@@ -1,14 +1,24 @@
 package wn.pseudoclasses;
 
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.StatementTree;
+import com.sun.source.tree.Tree;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import wn.tragulus.BasicProcessor;
+import wn.tragulus.TreeAssembler;
 
+import javax.annotation.processing.RoundEnvironment;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaFileObject;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -32,6 +42,7 @@ public class InlinerTest extends PseudoTest {
         //System.out.println(sc.get("TypeCast"));
     }
 
+
     @Test
     public void selfCall() throws Exception {
         SourceCollector sc = new SourceCollector("SelfCall");
@@ -39,6 +50,7 @@ public class InlinerTest extends PseudoTest {
         //System.out.println(sc.get("SelfCall"));
         Assertions.assertEquals(norm(contentOf("SelfCall-patched")), norm(sc.get("SelfCall")));
     }
+
 
     @Test
     public void procCall() throws Exception {
@@ -63,6 +75,7 @@ public class InlinerTest extends PseudoTest {
         //System.out.println(sc.get("ProcCall"));
     }
 
+
     @Test
     public void prefixIncDec() throws Exception {
         SourceCollector sc = new SourceCollector("PrefixIncDec");
@@ -72,6 +85,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals("index = 2/1\n35", norm(out.toString(US_ASCII)));
         Assertions.assertEquals(norm(contentOf("PrefixIncDec-patched")), norm(sc.get("PrefixIncDec")));
     }
+
 
     @Test
     public void postfixIncDec() throws Exception {
@@ -83,6 +97,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("PostfixIncDec-patched")), norm(sc.get("PostfixIncDec")));
     }
 
+
     @Test
     public void ifThen() throws Exception {
         SourceCollector sc = new SourceCollector("IfThen");
@@ -92,6 +107,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals("getByte(2)\n12340078", norm(out.toString(US_ASCII)));
         Assertions.assertEquals(norm(contentOf("IfThen-patched")), norm(sc.get("IfThen")));
     }
+
 
     @Test
     public void variable() throws Exception {
@@ -103,6 +119,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("Variable-patched")), norm(sc.get("Variable")));
     }
 
+
     @Test
     public void newArray() throws Exception {
         SourceCollector sc = new SourceCollector("NewArray");
@@ -112,6 +129,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals("[1, 2]\n[[1], [2]]\n[[0, 0, 0], [0, 0, 0]]", norm(out.toString(US_ASCII)));
         Assertions.assertEquals(norm(contentOf("NewArray-patched")), norm(sc.get("NewArray")));
     }
+
 
     @Test
     public void forLoop() throws Exception {
@@ -123,6 +141,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("ForLoop-patched")), norm(sc.get("ForLoop")));
     }
 
+
     @Test
     public void forLoopLabeled() throws Exception {
         SourceCollector sc = new SourceCollector("ForLoopLabeled");
@@ -132,6 +151,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals("getByte(0)\n0\ngetByte(1)\n0\ngetByte(0)\ngetByte(0)", norm(out.toString(US_ASCII)));
         Assertions.assertEquals(norm(contentOf("ForLoopLabeled-patched")), norm(sc.get("ForLoopLabeled")));
     }
+
 
     @Test
     public void foreachLoop() throws Exception {
@@ -143,6 +163,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("ForeachLoop-patched")), norm(sc.get("ForeachLoop")));
     }
 
+
     @Test
     public void foreachLoopLabeled() throws Exception {
         SourceCollector sc = new SourceCollector("ForeachLoopLabeled");
@@ -152,6 +173,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals("0\n1", norm(out.toString(US_ASCII)));
         Assertions.assertEquals(norm(contentOf("ForeachLoopLabeled-patched")), norm(sc.get("ForeachLoopLabeled")));
     }
+
 
     @Test
     public void whileLoop() throws Exception {
@@ -163,6 +185,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("WhileLoop-patched")), norm(sc.get("WhileLoop")));
     }
 
+
     @Test
     public void doWhileLoop() throws Exception {
         SourceCollector sc = new SourceCollector("DoWhileLoop");
@@ -172,6 +195,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals("0\ngetByte(0)\ngetByte(0)", norm(out.toString(US_ASCII)));
         Assertions.assertEquals(norm(contentOf("DoWhileLoop-patched")), norm(sc.get("DoWhileLoop")));
     }
+
 
     @Test
     public void assign() throws Exception {
@@ -183,12 +207,14 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("Assign-patched")), norm(sc.get("Assign")));
     }
 
+
     @Test
     public void instanceOfPseudo() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
         Assertions.assertFalse( compile(new Processor(), collector, "InstanceOfPseudo", "IntAnatomy0") );
         assertReport(collector, Diagnostic.Kind.ERROR, "regular class expected");
     }
+
 
     @Test
     public void instanceOfPseudoArray() throws Exception {
@@ -197,12 +223,14 @@ public class InlinerTest extends PseudoTest {
         assertReport(collector, Diagnostic.Kind.ERROR, "regular class expected");
     }
 
+
     @Test
     public void instanceOfPseudoArray2() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
         Assertions.assertFalse( compile(new Processor(), collector, "InstanceOfPseudoArray2", "IntAnatomy0") );
         assertReport(collector, Diagnostic.Kind.ERROR, "regular class expected");
     }
+
 
     @Test
     public void instanceOf() throws Exception {
@@ -214,6 +242,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("InstanceOf-patched")), norm(sc.get("InstanceOf")));
     }
 
+
     @Test
     public void badBinary() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
@@ -223,6 +252,7 @@ public class InlinerTest extends PseudoTest {
                 "  first type:  IntAnatomy0\n" +
                 "  second type: int");
     }
+
 
     @Test
     public void binary() throws Exception {
@@ -234,12 +264,14 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("Binary-patched")), norm(sc.get("Binary")));
     }
 
+
     @Test
     public void badUnary() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
         Assertions.assertFalse( compile(new Processor(), collector, "BadUnary", "IntAnatomy0") );
         assertReport(collector, Diagnostic.Kind.ERROR, "bad operand type IntAnatomy0 for unary operator '-'");
     }
+
 
     @Test
     public void unary() throws Exception {
@@ -251,12 +283,14 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("Unary-patched")), norm(sc.get("Unary")));
     }
 
+
     @Test
     public void badPlusPlus() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
         Assertions.assertFalse( compile(new Processor(), collector, "BadPlusPlus", "IntAnatomy0") );
         assertReport(collector, Diagnostic.Kind.ERROR, "bad operand type IntAnatomy0 for unary operator '++'");
     }
+
 
     @Test
     public void badPlusPlus2() throws Exception {
@@ -270,6 +304,7 @@ public class InlinerTest extends PseudoTest {
                 "  found:    value");
     }
 
+
     @Test
     public void switchCase() throws Exception {
         SourceCollector sc = new SourceCollector("Switch");
@@ -280,6 +315,7 @@ public class InlinerTest extends PseudoTest {
         Assertions.assertEquals(norm(contentOf("Switch-patched")), norm(sc.get("Switch")));
     }
 
+
     @Test
     public void badSwitch() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
@@ -288,6 +324,39 @@ public class InlinerTest extends PseudoTest {
             System.out.println(diag.getMessage(null));
         }
         assertReport(collector, Diagnostic.Kind.ERROR, "constant expression required");
+    }
+
+
+    @Test
+    public void reduce() throws Exception {
+        class Processor extends BasicProcessor {
+            static final int A = 0, B = 1, C = 2;
+            ExpressionTree reduced;
+            @Override
+            public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+                if (roundEnv.processingOver()) return true;
+                Pseudos pseudos = new Pseudos(helper);
+                Inliner inliner = new Inliner(pseudos);
+                TreeAssembler asm = inliner.asm;
+                TypeMirror tint = helper.asType(int.class);
+                Inliner.Statements stmts = inliner.new Statements();
+                stmts.add(asm.declareVar(tint, "x").get());
+                stmts.add(asm.declareVar(tint, "y").get());
+                stmts.add(asm.ident(A, "x").literal(B, 12).assign(A, B).exec(A).list(A).block(A).get(A));
+                StatementTree yx3 = asm.ident(A, "y").ident(B, "x").literal(C, 3)
+                        .bin(Tree.Kind.PLUS, B, C).assign(A, B).asStat(A);
+                StatementTree brk = asm.brk("label").asStat();
+                stmts.add(asm.block(Arrays.asList(yx3, brk)).labeled("label").get());
+                Inliner.Extract extr = inliner.new Extract(stmts,
+                        asm.ident(A, "y").ident(B, "z").bin(Tree.Kind.MINUS, A, B).asExpr(A));
+                System.out.println(extr);
+                System.out.println(reduced = extr.reduce());
+                return false;
+            }
+        }
+        Processor processor = new Processor();
+        compile(processor, "Nop");
+        Assertions.assertEquals("12 + 3 - z", String.valueOf(processor.reduced));
     }
 
 

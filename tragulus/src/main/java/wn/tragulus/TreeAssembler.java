@@ -1022,8 +1022,28 @@ public class TreeAssembler {
     }
 
 
+    public TreeAssembler brk() {
+        return brk(0);
+    }
+
+
+    public TreeAssembler brk(int reg) {
+        return brk(reg, (javax.lang.model.element.Name) null);
+    }
+
+
     public TreeAssembler brk(javax.lang.model.element.Name label) {
         return brk(0, label);
+    }
+
+
+    public TreeAssembler brk(String label) {
+        return brk(0, label);
+    }
+
+
+    public TreeAssembler brk(int reg, String label) {
+        return brk(reg, N.fromString(label));
     }
 
 
@@ -1035,6 +1055,16 @@ public class TreeAssembler {
 
     public TreeAssembler labeled(javax.lang.model.element.Name label) {
         return labeled(0, label);
+    }
+
+
+    public TreeAssembler labeled(String label) {
+        return labeled(0, label);
+    }
+
+
+    public TreeAssembler labeled(int reg, String label) {
+        return labeled(reg, N.fromString(label));
     }
 
 

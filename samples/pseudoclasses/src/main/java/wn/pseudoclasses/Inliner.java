@@ -855,7 +855,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
             Statements body, conStmts = conExtr.stmts;
             conStmts.add(asm.at(con)
                     .set(A, conExtr.expr).not(A)
-                    .brk(B, null).ifThen(A, B).get(A));
+                    .brk(B).ifThen(A, B).get(A));
             BlockTree cond = asm.at(con).block(conStmts).get();
             if (stmExtr == null) {
                 body = new Statements(2);
@@ -972,7 +972,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
         stm = stmExtr != null ? stmExtr.asStat(stm) : stm;
         if (conExtr != null) {
             Statements stmts = conExtr.stmts;
-            stmts.add(asm.at(node.getCondition()).set(A, conExtr.expr).not(A).brk(B, null).ifThen(A, B).get(A));
+            stmts.add(asm.at(node.getCondition()).set(A, conExtr.expr).not(A).brk(B).ifThen(A, B).get(A));
             ForLoopTree loop = asm.at(node).forLoop(null, null, stmts, stm).get();
             return new Extract(loop);
         } else {
@@ -1137,18 +1137,19 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
          * int x, y;
          * {
          *    x = 12;
-         *    //int y = 3; // prohibited
-         *    //x += y;    // prohibited
+         *    //int y = 3; // prohibited (2nd declaration)
+         *    //x += y;    // prohibited (reassigning)
          * }
          * label: {
-         *   y = x + 3;
-         *   break label;
+         *    y = x + 3;
+         *    //y = 5;     // prohibited (reassigning)
+         *    break label;
          * }
-         * return y;
+         * return y - z;
          * }</pre>
-         * To a single expression like
+         * to a single expression like
          * <pre>{@code
-         * return 12 + 3;
+         * return 12 + 3 - z;
          * }</pre>
          */
         ExpressionTree reduce() {
@@ -1277,6 +1278,19 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
                 vars.put(name, expr);
             }
             return scanner != null ? scanner.scan(expr, null) : expr;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder buf = new StringBuilder();
+            for (StatementTree s : stmts) {
+                buf.append(s);
+                buf.append(s instanceof BlockTree ? "\n" : ";\n");
+            }
+            buf.append("return ");
+            buf.append(expr);
+            buf.append(';');
+            return buf.toString();
         }
     }
 

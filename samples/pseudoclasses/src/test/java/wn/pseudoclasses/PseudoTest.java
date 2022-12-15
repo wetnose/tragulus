@@ -54,13 +54,14 @@ abstract class PseudoTest {
     }
 
 
-    boolean compile(Processor processor, String ... targets) throws Exception {
+    boolean compile(javax.annotation.processing.Processor processor, String ... targets) throws Exception {
         return compile(processor, new DiagnosticCollector<>(), targets);
     }
 
 
-    boolean compile(Processor processor, DiagnosticCollector<JavaFileObject> diagnostics,
-                                   String ... targets) throws Exception {
+    boolean compile(javax.annotation.processing.Processor processor,
+                    DiagnosticCollector<JavaFileObject> diagnostics,
+                    String ... targets) throws Exception {
         List<File> javaFiles = Stream.of(targets).map(this::fileOf).collect(Collectors.toList());
         File testDir = javaFiles.get(0).getParentFile().getParentFile();
         return JavacUtils.complile(javaFiles, new File(testDir, "tmp"), OPT_PROCESS_ERRORS, processor, diagnostics);

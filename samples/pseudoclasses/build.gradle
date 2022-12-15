@@ -14,6 +14,11 @@ compileJava {
     ]
 }
 
+compileTestJava {
+    options.compilerArgs = [
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+    ]
+}
 
 dependencies {
     //compile files("${System.getProperty('java.home')}/../lib/tools.jar")
