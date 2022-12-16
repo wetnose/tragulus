@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -65,20 +66,26 @@ public class Processor extends BasicProcessor {
         Pseudos pseudos = new Pseudos(helper);
         ArrayList<PseudoType> pseudotypes = new ArrayList<>();
 
-        for (Element element : env.getRootElements()) {
-            switch (element.getKind()) {
-                case CLASS:
-                case INTERFACE:
-                    PseudoType pt = pseudos.pseudoTypeOf(element);
-                    if (pt != null) pseudotypes.add(pt);
+        Trees trees = helper.getTreeUtils();
+        env.getRootElements().stream().map(trees::getPath).forEach(new Consumer<>() {
+            @Override
+            public void accept(TreePath path) {
+                Tree node = path.getLeaf();
+                switch (node.getKind()) {
+                    case CLASS:
+                    case INTERFACE:
+                        PseudoType pt = pseudos.pseudoTypeOf(path);
+                        if (pt != null) pseudotypes.add(pt);
+                        ((ClassTree) node).getMembers().forEach(member -> accept(new TreePath(path, member)));
+                }
             }
-        }
+        });
 
         pseudotypes.forEach(System.out::println);
 
         Map<CompilationUnitTree,List<PseudoType>> usages = new HashMap<>();
 
-        boolean valid = helper.noErrorReports();
+        boolean valid = pseudos.validate();
 
         distribution: {
 

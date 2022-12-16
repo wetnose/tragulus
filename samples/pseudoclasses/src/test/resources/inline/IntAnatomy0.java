@@ -65,8 +65,8 @@ public final class IntAnatomy0 extends Wrapper<int> {
 //    }
 
 
-    @Pseudo
-    static final class XX {
-
-    }
+//    @Pseudo
+//    static final class XX extends int {
+//
+//    }
 }

@@ -442,6 +442,11 @@ public class Editors {
     }
 
 
+    public static void setResources(TryTree node, Collection<? extends Tree> resources) {
+        ((JCTry) node).resources = JCUtils.toJCList(resources);
+    }
+
+
     public static boolean replaceTree(TreePath path, Tree repl) {
         TreePath root;
         if (path == null || (root = path.getParentPath()) == null) return false;
@@ -486,12 +491,12 @@ public class Editors {
                     if (!predicate.test(node)) {
                         List<T> res = List.nil();
                         for(List<T> j = list; j != i; j = j.tail) {
-                            res.prepend(j.head);
+                            res = res.prepend(deep ? super.translate(j.head) : j.head);
                         }
                         for(List<T> j = i.tail; j.nonEmpty(); j = j.tail) {
                             T a = j.head;
                             if (predicate.test(a)) {
-                                res = res.prepend(a);
+                                res = res.prepend(deep ? super.translate(a) : a);
                             }
                         }
                         return res.reverse();

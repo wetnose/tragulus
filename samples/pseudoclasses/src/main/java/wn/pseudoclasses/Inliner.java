@@ -55,16 +55,16 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
 
 
     Inliner(Pseudos pseudos) {
-        this.helper  = pseudos.helper;
         this.pseudos = pseudos;
+        this.helper  = pseudos.helper;
         this.trees   = pseudos.trees;
         this.types   = pseudos.types;
-        this.asm     = helper.newAssembler(V+1);
+        this.asm     = pseudos.asm;
     }
 
 
     void inline(TreePath root) {
-        maskErroneousCasts(root);
+        pseudos.maskErroneousCasts(root);
         scan(root, new Names(root.getLeaf()));
 
         System.out.println(root.getLeaf());
@@ -628,7 +628,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
             ExpressionTree expr = node.getExpression();
             TreePath expPath = new TreePath(path, expr);
             pseudos.suppressDiagnostics(CANNOT_CAST, expPath);
-            Extract extr = scan(unmaskErroneousCasts(expPath), names);
+            Extract extr = scan(pseudos.unmaskErroneousCasts(expPath), names);
             if (extr != null) return extr;
             TypeMirror exprType = helper.attributeType(new TreePath(path, expr = node.getExpression()));
             TypeMirror replace = ext.wrappedType;
@@ -981,6 +981,69 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
         }
     }
 
+
+    @Override
+    public Extract visitTry(TryTree node, Names names) {
+        Tree[] res = node.getResources().toArray(new Tree[0]);
+        int resCount = res.length, extrCount = 0;
+        Extract[] resExtr = null;
+        for (int i=0; i < resCount; i++) {
+            Tree r = res[i];
+            if (!(r instanceof VariableTree)) continue;
+            VariableTree var = (VariableTree) r;
+            //scan(var.getType(), "try.type", names);
+            Extract extr = scan(var.getInitializer(), names);
+            if (extr != null) {
+                extrCount++;
+                if (resExtr == null) resExtr = new Extract[resCount];
+                resExtr[i] = extr;
+            }
+        }
+
+        Statements stmts = null;
+        if (resExtr != null) {
+            stmts = new Statements();
+            res = node.getResources().toArray(new Tree[0]); // could be evaluated
+            for (int i=0; i < resCount; i++) {
+                Tree r = res[i];
+                if (extrCount == 0) {
+                    res[i] = asm.copyOf(r);
+                    continue;
+                }
+                Extract extr = resExtr[i];
+                Tree decl;
+                if (extr != null) {
+                    extrCount--;
+                    stmts.addAll(extr.stmts);
+                    VariableTree var = (VariableTree) r;
+                    ExpressionTree init = var.getInitializer();
+                    decl = asm.copyOf(var, (t, copier) -> t == init ? extr.expr : null);
+                } else {
+                    decl = null;
+                }
+                if (decl == null) decl = asm.copyOf(r);
+                if (decl instanceof IdentifierTree) {
+                    res[i] = decl;
+                } else {
+                    VariableTree var = (VariableTree) decl;
+                    stmts.add(var);
+                    res[i] = asm.at(var).identOf(var.getName());
+                }
+            }
+        }
+
+        scan(node.getBlock(), names);
+        scan(node.getCatches(), names);
+        scan(node.getFinallyBlock(), names);
+
+        if (stmts == null) return null;
+        Editors.setResources(node, null);
+        stmts.add(node = asm.at(node).copyOf(node));
+        Editors.setResources(node, Arrays.asList(res));
+        return new Extract(asm.block(stmts).asStat());
+    }
+
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Routines
 
@@ -1008,35 +1071,6 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
         expr = peelExpr(expr);
         return expr instanceof IdentifierTree || expr instanceof LiteralTree;
     }
-
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Fraud
-
-
-    void maskErroneousCasts(TreePath path) {
-        new TreePathScanner<Void,Void>() {
-            @Override
-            public Void visitTypeCast(TypeCastTree node, Void names) {
-                TypeMirror type = helper.attributeType(new TreePath(getCurrentPath(), node.getType()));
-                ExpressionTree expr = node.getExpression();
-                Extension ext = pseudos.getExtension(type);
-                if (ext != null)
-                    Editors.replaceTree(node, expr, expr = asm.at(expr).set(expr).cast(pseudos.objectType).get());
-                scan(expr, null);
-                return null;
-            }
-        }.scan(path, null);
-    }
-
-    ExpressionTree unmaskErroneousCasts(TreePath path) {
-        ExpressionTree node = (ExpressionTree) path.getLeaf();
-        if (!(node instanceof TypeCastTree)) return node;
-        TypeMirror type = helper.attributeType(new TreePath(path, ((TypeCastTree) node).getType()));
-        if (type == pseudos.objectType) Editors.replaceTree(path, node = ((TypeCastTree) node).getExpression());
-        return node;
-    }
-
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

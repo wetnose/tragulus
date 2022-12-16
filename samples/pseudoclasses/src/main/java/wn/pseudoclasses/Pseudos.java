@@ -1,19 +1,26 @@
 package wn.pseudoclasses;
 
+import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.tree.TypeCastTree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.tree.JCTree;
+import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
 import wn.tragulus.ProcessingHelper;
+import wn.tragulus.TreeAssembler;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -24,15 +31,12 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic;
-import javax.tools.JavaFileObject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Predicate;
 
 import static com.sun.tools.javac.code.Flags.FINAL;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
@@ -40,7 +44,7 @@ import static javax.lang.model.element.ElementKind.FIELD;
 import static javax.lang.model.util.Elements.Origin.MANDATED;
 import static wn.tragulus.JavacUtils.isPublic;
 import static wn.tragulus.JavacUtils.isStatic;
-import static wn.tragulus.JavacUtils.walkOver;
+
 
 /**
  * Alexander A. Solovioff
@@ -73,6 +77,7 @@ class Pseudos {
     final Trees            trees;
     final Types            types;
     final Elements         elements;
+    final TreeAssembler    asm;
 
     final TypeMirror voidType;
     final TypeMirror booleanType;
@@ -82,6 +87,7 @@ class Pseudos {
     final TypeMirror overrideType;
 
     final Element wrapperValue;
+    final Name    superName;
     final Name    thisName;
 
 
@@ -90,6 +96,7 @@ class Pseudos {
         this.trees    = helper.getTreeUtils();
         this.types    = helper.getTypeUtils();
         this.elements = helper.getElementUtils();
+        this.asm      = helper.newAssembler(5);
 
         voidType      = helper.asType(void.class);
         booleanType   = helper.asType(boolean.class);
@@ -98,7 +105,8 @@ class Pseudos {
         pseudoType    = helper.asType(wn.pseudoclasses.Pseudo.class);
         overrideType  = helper.asType(Override.class);
 
-        thisName = helper.getName("this");
+        superName = helper.getName("super");
+        thisName  = helper.getName("this");
 
         TypeElement wrapper = helper.asElement(wrapperType);
         Name value = helper.getName("value");
@@ -152,17 +160,11 @@ class Pseudos {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-    PseudoType pseudoTypeOf(Element element) {
-        return element instanceof TypeElement ? pseudoTypeOf(trees.getPath(element)) : null;
-    }
-
-
     PseudoType pseudoTypeOf(TreePath path) {
         return pseudotypes.computeIfAbsent(helper.asType(path), t -> {
             PseudoType type = detectPseudotype(path);
             if (type != null) {
                 if (type instanceof Extension) ((Extension) type).decompose();
-                validate(type);
             }
             return type;
         });
@@ -180,76 +182,101 @@ class Pseudos {
     }
 
 
+    boolean validate() {
+        pseudotypes.values().forEach(this::validate);
+        return helper.noErrorReports();
+    }
+
+
     private void validate(PseudoType type) {
+        TreePath root = type.path;
+        {
+            TreePath par;
+            while ((par = root.getParentPath()).getLeaf() instanceof ClassTree)
+                root = par;
+            if (par != root) {
+                maskErroneousCasts(root);
+            }
+        }
         boolean pub = isPublic(type.elem);
         Scope scope = trees.getScope(type.path);
         TypeMirror tm = type.elem.asType();
 //        if (JavacUtils.hasOuterInstance(type.elem)) {
 //            helper.printError("unsupported nested pseudo class", type.path);
 //        }
-        walkOver(type.path, walker -> {
-            TreePath path = walker.path();
-            Tree node = path.getLeaf();
-            //System.out.println(node.getKind() + ": " + node);
-            switch (node.getKind()) {
-                case ANNOTATION:
+
+        new TreePathScanner<Void,PseudoType>() {
+            @Override
+            public Void visitClass(ClassTree node, PseudoType pt) {
+                TypeMirror type = helper.asType(getCurrentPath());
+                return super.visitClass(node, pseudotypes.get(type));
+            }
+            @Override
+            public Void visitAnnotation(AnnotationTree node, PseudoType pt) {
+                if (pt == null) return super.visitAnnotation(node, pt);
+                if (pt == type) {
                     TypeMirror anno = JavacUtils.typeOf(node);
                     if (anno != overrideType && anno != pseudoType) {
-                        helper.printError("unexpected annotation type", path);
+                        helper.printError("unexpected annotation type", getCurrentPath());
                     }
-                    break;
-                case IDENTIFIER: {
-                    helper.attribute(path);
-                    Element element = trees.getElement(path);
-                    if (element == null) break;
-                    accessCheck: {
-                        boolean member;
-                        switch (element.getKind()) {
-                            case ENUM:
-                            case CLASS:
-                            case INTERFACE:
-                            case ANNOTATION_TYPE:
-                                member = false;
-                                break;
-                            case FIELD:
-                            case METHOD:
-                            case CONSTRUCTOR:
-                                member = true;
-                                break;
-                            default:
-                                break accessCheck;
-                        }
-                        if (member) {
-                            if (isStatic(element)) {
-                                helper.printError("static members not supported", path);
-                                break accessCheck;
-                            }
-                            if (type instanceof Wrapper && element == wrapperValue) {
-                                break accessCheck;
-                            }
-                        }
-                        if (pub) {
-                            if (isPublic(element)) break accessCheck;
-                            if (!member) break;
-                            TypeMirror enclosing = element.getEnclosingElement().asType();
-                            if (enclosing == tm) break accessCheck;
-                        } else {
-                            if (member) {
-                                TypeMirror enclosing = element.getEnclosingElement().asType();
-                                if (!(enclosing instanceof DeclaredType)) break accessCheck;
-                                if (trees.isAccessible(scope, element, (DeclaredType) enclosing))
-                                    break accessCheck;
-                            } else {
-                                if (trees.isAccessible(scope, (TypeElement) element)) break accessCheck;
-                            }
-                        }
-                        helper.printError(
-                                "no access to " + element.getKind().toString().toLowerCase() + " " + element, path);
-                    }
-                    break;
                 }
+                return null;
             }
-        });
+            @Override
+            public Void visitIdentifier(IdentifierTree node, PseudoType pt) {
+                TreePath path = getCurrentPath();
+                helper.attribute(path);
+                if (pt == null) return null;
+                Element element = trees.getElement(path);
+                if (element == null) return null;
+                accessCheck: {
+                    boolean member;
+                    switch (element.getKind()) {
+                        case ENUM:
+                        case CLASS:
+                        case INTERFACE:
+                        case ANNOTATION_TYPE:
+                            member = false;
+                            break;
+                        case FIELD:
+                        case METHOD:
+                        case CONSTRUCTOR:
+                            member = true;
+                            break;
+                        default:
+                            break accessCheck;
+                    }
+                    if (member) {
+                        if (isStatic(element)) {
+                            helper.printError("static members not supported", path);
+                            break accessCheck;
+                        }
+                        if (type instanceof Wrapper && element == wrapperValue) {
+                            break accessCheck;
+                        }
+                    }
+                    if (pub) {
+                        if (isPublic(element)) break accessCheck;
+                        if (!member) return null;
+                        TypeMirror enclosing = element.getEnclosingElement().asType();
+                        if (enclosing == tm) break accessCheck;
+                    } else {
+                        if (member) {
+                            TypeMirror enclosing = element.getEnclosingElement().asType();
+                            if (!(enclosing instanceof DeclaredType)) break accessCheck;
+                            if (trees.isAccessible(scope, element, (DeclaredType) enclosing))
+                                break accessCheck;
+                        } else {
+                            if (trees.isAccessible(scope, (TypeElement) element)) break accessCheck;
+                        }
+                    }
+                    helper.printError(
+                            "no access to " + element.getKind().toString().toLowerCase() + " " + element, path);
+                }
+                return null;
+            }
+        }.scan(root, null);
+        System.out.println(type.path.getParentPath().getLeaf());
     }
 
 
@@ -534,5 +561,45 @@ class Pseudos {
         public String toString() {
             return elem.getEnclosingElement() + "." + elem;
         }
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Fraud
+
+
+    void maskErroneousCasts(TreePath path) {
+        new TreePathScanner<Void,Tree>() {
+            @Override
+            public Void visitClass(ClassTree node, Tree unused) {
+                TypeMirror type = JavacUtils.typeOf(node);
+                if (pseudotypes.containsKey(type)) return null;
+                return super.visitClass(node, null);
+            }
+            @Override
+            public Void visitTypeCast(TypeCastTree node, Tree unused) {
+                TypeMirror type = helper.attributeType(new TreePath(getCurrentPath(), node.getType()));
+                ExpressionTree expr = node.getExpression();
+                Extension ext = getExtension(type);
+                if (ext != null && !isMasked(new TreePath(getCurrentPath(), expr)))
+                    Editors.replaceTree(node, expr, expr = asm.at(expr).set(expr).cast(objectType).get());
+                scan(expr, null);
+                return null;
+            }
+        }.scan(path, null);
+    }
+
+    private boolean isMasked(TreePath path) {
+        Tree node = path.getLeaf();
+        if (!(node instanceof TypeCastTree)) return false;
+        TypeMirror type = helper.attributeType(new TreePath(path, ((TypeCastTree) node).getType()));
+        return type == objectType;
+    }
+
+    ExpressionTree unmaskErroneousCasts(TreePath path) {
+        ExpressionTree node = (ExpressionTree) path.getLeaf();
+        if (!isMasked(path)) return node;
+        Editors.replaceTree(path, node = ((TypeCastTree) node).getExpression());
+        return node;
     }
 }

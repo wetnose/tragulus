@@ -178,7 +178,7 @@ public class InlinerTest extends PseudoTest {
     @Test
     public void whileLoop() throws Exception {
         SourceCollector sc = new SourceCollector("WhileLoop");
-        Assertions.assertTrue( compile(new Processor(sc), "WhileLoop", "IntAnatomy0") );
+         Assertions.assertTrue( compile(new Processor(sc), "WhileLoop", "IntAnatomy0") );
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         run("WhileLoop", out);
         Assertions.assertEquals("getByte(0)\n0\ngetByte(0)\ngetByte(0)", norm(out.toString(US_ASCII)));
@@ -357,6 +357,22 @@ public class InlinerTest extends PseudoTest {
         Processor processor = new Processor();
         compile(processor, "Nop");
         Assertions.assertEquals("12 + 3 - z", String.valueOf(processor.reduced));
+    }
+
+
+    @Test
+    public void tryResource() throws Exception {
+        SourceCollector sc = new SourceCollector("Try");
+        Assertions.assertTrue( compile(new Processor(sc), "Try") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("Try", out);
+        Assertions.assertEquals(
+                "r0 created\nr1 created\nr2 created\nr3 created\n" +
+                "block\n" +
+                "r3 closed\nr0 closed\nr2 closed\nr1 closed\n" +
+                "done",
+                norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("Try-patched")), norm(sc.get("Try")));
     }
 
 
