@@ -33,7 +33,6 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -155,7 +154,7 @@ class Pseudos {
 
 
     void suppressDiagnostics(Err err, CompilationUnitTree unit, Tree tree) {
-        helper.filterDiagnostics(diag ->
+        helper.removeDiagnosticsIf(diag ->
                 diag.getCode().equals(err.code)
                         && diag.getSource() == unit.getSourceFile()
                         && diag.getPosition() == ((JCTree) tree).pos);
@@ -166,8 +165,8 @@ class Pseudos {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-    PseudoType pseudoTypeOf(TreePath path) {
-        return pseudotypes.computeIfAbsent(helper.asType(path), t -> {
+    private void processType(TreePath path) {
+        pseudotypes.computeIfAbsent(helper.asType(path), t -> {
             PseudoType type = detectPseudotype(path);
             if (type != null) {
                 if (type instanceof Extension) ((Extension) type).decompose();
@@ -196,7 +195,7 @@ class Pseudos {
                 switch (node.getKind()) {
                     case CLASS:
                     case INTERFACE:
-                        pseudoTypeOf(path);
+                        processType(path);
                         ((ClassTree) node).getMembers().forEach(member -> accept(new TreePath(path, member)));
                 }
             }
@@ -228,19 +227,12 @@ class Pseudos {
                 TreePath path = walker.path();
                 Tree t = path.getLeaf();
                 if (t.getKind() == Tree.Kind.CLASS && getExtension(JavacUtils.typeOf(t)) == null) {
-                    //System.out.println("CLASS " + ((ClassTree) t).getSimpleName());
                     validateUsages(path);
                 }
             });
         });
 
-        boolean valid = helper.getDiagnosticQ().stream().noneMatch(diag ->
-                diag.getKind() == Diagnostic.Kind.ERROR &&
-                !diag.getCode().equals(Err.CONST_EXPR_REQUIRED.code)); // keep for switch/case
-
-        if (!valid) return null;
-
-        return units;
+        return helper.noErrorReports() ? units : null;
     }
 
 
@@ -356,10 +348,7 @@ class Pseudos {
             }
         }.scan(path, null);
         JavaFileObject src = path.getCompilationUnit().getSourceFile();
-        helper.filterDiagnostics(diag -> {
-            if (diag.getSource() != src) return false;
-            return diag.getCode().equals(Err.CANNOT_CAST.code);
-        });
+        helper.removeDiagnosticsIf(diag -> diag.getSource() == src);
     }
 
 

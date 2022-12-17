@@ -403,7 +403,7 @@ public class JavacUtils {
     }
 
 
-    public static Tree getTree(Diagnostic<? extends JavaFileObject> diagnostic) {
+    public static Tree getTree(Diagnostic<?> diagnostic) {
         DiagnosticPosition position = ((JCDiagnostic) diagnostic).getDiagnosticPosition();
         return position == null ? null : position.getTree();
     }

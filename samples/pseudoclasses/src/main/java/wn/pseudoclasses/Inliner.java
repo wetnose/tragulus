@@ -826,8 +826,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
         if (extr != null) {
             ExpressionTree expr = extr.reduce();
             if (expr == null) {
-                //todo full precalculation support req.
-//                helper.printError("constant expression expected", getCurrentPath());
+                helper.printError("constant expression required", new TreePath(getCurrentPath(), node.getExpression()));
                 expr = extr.expr;
             } else {
                 pseudos.suppressDiagnostics(CONST_EXPR_REQUIRED, new TreePath(getCurrentPath(), node.getExpression()));

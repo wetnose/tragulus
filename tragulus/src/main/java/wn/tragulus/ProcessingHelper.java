@@ -421,7 +421,7 @@ public class ProcessingHelper {
     }
 
 
-    public void filterDiagnostics(Predicate<Diagnostic<JavaFileObject>> filter) {
+    public void removeDiagnosticsIf(Predicate<Diagnostic<JavaFileObject>> filter) {
         Queue<JCDiagnostic> queue = getDiagnostics();
         ArrayList<JCDiagnostic> tmp = new ArrayList<>(queue);
         if (tmp.removeIf(filter)) {
