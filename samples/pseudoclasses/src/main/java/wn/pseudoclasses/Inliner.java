@@ -473,11 +473,6 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     public Extract visitVariable(VariableTree node, Names names) {
         TreePath path = getCurrentPath();
         scanType(path, node.getType());
-        Tree type = node.getType();
-        Extension ext = pseudos.getExtension(helper.typeOf(path, type));
-        if (ext != null) {
-            Editors.setType(node, asm.at(type).type(ext.wrappedType).asExpr());
-        }
         Extract init = scan(node.getInitializer(), names);
         if (init != null) {
             Editors.setInitializer(node, null);
@@ -653,9 +648,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     @Override
     public Extract visitTypeCast(TypeCastTree node, Names names) {
         TreePath path = getCurrentPath();
-        scan(node.getType(), "type", names);
-        Tree type = node.getType();
-        Extension ext = pseudos.getExtension(helper.attributeType(new TreePath(path, type)));
+        Extension ext = scanType(path, node.getType());
         if (ext != null) {
             ExpressionTree expr = node.getExpression();
             TreePath expPath = new TreePath(path, expr);
@@ -667,7 +660,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
             if (exprType == replace) {
                 Editors.replaceTree(path, expr);
             } else {
-                Editors.setType(node, asm.at(type).type(replace).asExpr());
+                Editors.setType(node, asm.at(node.getType()).type(replace).asExpr());
             }
         } else {
             scan(node.getExpression(), "cast", names);
@@ -678,12 +671,9 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
 
     @Override
     public Extract visitArrayType(ArrayTypeTree node, Names names) {
-        TreePath path = getCurrentPath();
-        scan(node.getType(), "array", names);
-        Tree type = node.getType();
-        Extension ext = pseudos.getExtension(helper.attributeType(new TreePath(path, type)));
+        Extension ext = scanType(getCurrentPath(), node.getType());
         if (ext != null) {
-            Editors.setElementType(node, asm.at(type).type(ext.wrappedType).get());
+            Editors.setElementType(node, asm.at(node.getType()).type(ext.wrappedType).get());
         }
         return null;
     }
@@ -719,10 +709,8 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
                 init[i] = extr.expr;
             }
         }
-        scan(node.getType(), "new", names);
+        Extension ext = scanType(getCurrentPath(), node.getType());
         ExpressionTree type = (ExpressionTree) node.getType();
-        Extension ext = type == null ? null :
-                pseudos.getExtension(helper.attributeType(new TreePath(getCurrentPath(), type)));
         if (ext != null) {
             type = asm.at(type).type(ext.wrappedType).get();
         }
@@ -1023,7 +1011,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
             Tree r = res[i];
             if (!(r instanceof VariableTree)) continue;
             VariableTree var = (VariableTree) r;
-            //scan(var.getType(), "try.type", names);
+            scanType(getCurrentPath(), var.getType());
             Extract extr = scan(var.getInitializer(), names);
             if (extr != null) {
                 extrCount++;
@@ -1080,10 +1068,9 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     // Types
 
 
-    void scanType(TreePath path, Tree node) {
-        if (node != null) {
-            typeScanner.scan(new TreePath(path, node), null);
-        }
+    Extension scanType(TreePath path, Tree node) {
+        if (node == null) return null;
+        return typeScanner.scan(new TreePath(path, node), null);
     }
 
 
@@ -1096,19 +1083,20 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     }
 
 
-    final TreePathScanner<Void,Void> typeScanner = new TreePathScanner<Void, Void>() {
+    final TreePathScanner<Extension,Void> typeScanner = new TreePathScanner<Extension, Void>() {
 
-        boolean restoreType(TreePath path) {
+        Extension restoreType(TreePath path) {
             TypeMirror type = helper.attributeType(path);
             Extension ext = pseudos.getExtension(type);
-            if (ext == null) return false;
+            if (ext == null) return null;
             Editors.replaceTree(path, asm.at(path.getLeaf()).type(ext.wrappedType).get());
-            return true;
+            return ext;
         }
 
         @Override
-        public Void visitMemberSelect(MemberSelectTree node, Void unused) {
-            if (restoreType(getCurrentPath())) return null;
+        public Extension visitMemberSelect(MemberSelectTree node, Void unused) {
+            Extension ext = restoreType(getCurrentPath());
+            if (ext == null) return null;
             return super.visitMemberSelect(node, unused);
         }
 
@@ -1118,9 +1106,8 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
 //        }
 
         @Override
-        public Void visitIdentifier(IdentifierTree node, Void unused) {
-            restoreType(getCurrentPath());
-            return null;
+        public Extension visitIdentifier(IdentifierTree node, Void unused) {
+            return restoreType(getCurrentPath());
         }
 
 //        @Override
@@ -1129,7 +1116,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
 //        }
 
         @Override
-        public Void visitParameterizedType(ParameterizedTypeTree node, Void unused) {
+        public Extension visitParameterizedType(ParameterizedTypeTree node, Void unused) {
             return super.visitParameterizedType(node, unused);
         }
 
