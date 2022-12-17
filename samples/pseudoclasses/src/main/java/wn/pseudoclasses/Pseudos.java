@@ -342,7 +342,7 @@ class Pseudos {
                     }
                     return null;
                 } else {
-                    helper.printWarning("not found", select);
+                    helper.printWarning("not found", select); //todo check this case
                     return super.visitMethodInvocation(node, unused);
                 }
             }
