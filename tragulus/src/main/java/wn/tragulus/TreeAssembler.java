@@ -649,7 +649,7 @@ public class TreeAssembler {
 
 
     public TreeAssembler ident(int reg, TypeMirror type) {
-        ident(reg, ((DeclaredType) type).asElement());
+        ident(reg, ((Type) type).asElement());
         return this;
     }
 

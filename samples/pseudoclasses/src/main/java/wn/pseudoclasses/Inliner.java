@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,15 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     void scan(Tree tree, String ctrlCode, Names names) {
         if (super.scan(tree, names) != null) {
             helper.printError("internal error #" + ctrlCode, new TreePath(getCurrentPath(), tree));
+        }
+    }
+
+
+    void scan(Iterable<? extends Tree> trees, String ctrlCode, Names names) {
+        if (super.scan(trees, names) != null) {
+            Iterator<? extends Tree> iter = trees.iterator();
+            TreePath path = iter.hasNext() ? new TreePath(getCurrentPath(), iter.next()) : getCurrentPath();
+            helper.printError("internal error #" + ctrlCode, path);
         }
     }
 
@@ -131,6 +141,28 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
         Extract extr = scan(node.getExpression(), names);
         StatementTree stmt;
         return extr == null || (stmt = extr.asStat(node)) == null ? null : new Extract(stmt);
+    }
+
+
+    @Override
+    public Extract visitMethod(MethodTree node, Names names) {
+        TreePath path = getCurrentPath();
+        scanTypes(path, node.getTypeParameters());
+        scanType (path, node.getReturnType());
+        scan(node.getReceiverParameter(), "receiver", names);
+        scan(node.getParameters(), "params", names);
+        scanTypes(path, node.getThrows());
+        scan(node.getBody(), "body", names);
+        Extract def = scan(node.getDefaultValue(), names);
+        if (def != null) {
+            ExpressionTree expr = def.reduce();
+            if (expr == null) {
+                helper.printError("cannot inline the expression", new TreePath(path, node.getDefaultValue()));
+            } else {
+                Editors.setDefaultValue(node, expr);
+            }
+        }
+        return null;
     }
 
 
@@ -440,7 +472,7 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
     @Override
     public Extract visitVariable(VariableTree node, Names names) {
         TreePath path = getCurrentPath();
-        scan(node.getType(), "var", names);
+        scanType(path, node.getType());
         Tree type = node.getType();
         Extension ext = pseudos.getExtension(helper.typeOf(path, type));
         if (ext != null) {
@@ -1043,6 +1075,94 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
         return new Extract(asm.block(stmts).asStat());
     }
 
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Types
+
+
+    void scanType(TreePath path, Tree node) {
+        if (node != null) {
+            typeScanner.scan(new TreePath(path, node), null);
+        }
+    }
+
+
+    void scanTypes(TreePath path, Iterable<? extends Tree> nodes) {
+        if (nodes != null) {
+            for (Tree node : nodes) {
+                typeScanner.scan(new TreePath(path, node), null);
+            }
+        }
+    }
+
+
+    final TreePathScanner<Void,Void> typeScanner = new TreePathScanner<Void, Void>() {
+
+        boolean restoreType(TreePath path) {
+            TypeMirror type = helper.attributeType(path);
+            Extension ext = pseudos.getExtension(type);
+            if (ext == null) return false;
+            Editors.replaceTree(path, asm.at(path.getLeaf()).type(ext.wrappedType).get());
+            return true;
+        }
+
+        @Override
+        public Void visitMemberSelect(MemberSelectTree node, Void unused) {
+            if (restoreType(getCurrentPath())) return null;
+            return super.visitMemberSelect(node, unused);
+        }
+
+//        @Override
+//        public Void visitMemberReference(MemberReferenceTree node, Void unused) {
+//            return super.visitMemberReference(node, unused);
+//        }
+
+        @Override
+        public Void visitIdentifier(IdentifierTree node, Void unused) {
+            restoreType(getCurrentPath());
+            return null;
+        }
+
+//        @Override
+//        public Void visitArrayType(ArrayTypeTree node, Void unused) {
+//            return super.visitArrayType(node, unused);
+//        }
+
+        @Override
+        public Void visitParameterizedType(ParameterizedTypeTree node, Void unused) {
+            return super.visitParameterizedType(node, unused);
+        }
+
+//        @Override
+//        public Void visitUnionType(UnionTypeTree node, Void unused) {
+//            return super.visitUnionType(node, unused);
+//        }
+//
+//        @Override
+//        public Void visitIntersectionType(IntersectionTypeTree node, Void unused) {
+//            return super.visitIntersectionType(node, unused);
+//        }
+//
+//        @Override
+//        public Void visitTypeParameter(TypeParameterTree node, Void unused) {
+//            return super.visitTypeParameter(node, unused);
+//        }
+//
+//        @Override
+//        public Void visitWildcard(WildcardTree node, Void unused) {
+//            return super.visitWildcard(node, unused);
+//        }
+//
+//        @Override
+//        public Void visitAnnotation(AnnotationTree node, Void unused) {
+//            return super.visitAnnotation(node, unused);
+//        }
+//
+//        @Override
+//        public Void visitAnnotatedType(AnnotatedTypeTree node, Void unused) {
+//            return super.visitAnnotatedType(node, unused);
+//        }
+    };
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Routines
