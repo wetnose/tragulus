@@ -6,6 +6,7 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Scope;
@@ -31,6 +32,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import javax.tools.JavaFileObject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -182,9 +184,8 @@ class Pseudos {
     }
 
 
-    boolean validate() {
+    void validatePseudotypes() {
         pseudotypes.values().forEach(this::validate);
-        return helper.noErrorReports();
     }
 
 
@@ -226,7 +227,7 @@ class Pseudos {
             public Void visitIdentifier(IdentifierTree node, PseudoType pt) {
                 TreePath path = getCurrentPath();
                 helper.attribute(path);
-                if (pt == null) return null;
+                if (pt != type) return null;
                 Element element = trees.getElement(path);
                 if (element == null) return null;
                 accessCheck: {
@@ -277,6 +278,35 @@ class Pseudos {
             }
         }.scan(root, null);
         System.out.println(type.path.getParentPath().getLeaf());
+    }
+
+
+    void validateClient(TreePath path) {
+        maskErroneousCasts(path);
+        new TreePathScanner<Void,Void>() {
+            @Override
+            public Void visitMethodInvocation(MethodInvocationTree node, Void unused) {
+                TreePath path = getCurrentPath();
+                TreePath select = new TreePath(path, node.getMethodSelect());
+                Element mth = trees.getElement(select);
+                if (mth != null) {
+                    for (ExpressionTree arg : node.getArguments()) {
+                        helper.attributeExpr(new TreePath(path, arg));
+                    }
+                    return null;
+                } else {
+                    helper.printWarning("not found", select);
+                    return super.visitMethodInvocation(node, unused);
+                }
+            }
+        }.scan(path, null);
+        JavaFileObject src = path.getCompilationUnit().getSourceFile();
+        helper.filterDiagnostics(diag -> {
+            if (diag.getSource() != src) return false;
+            String code = diag.getCode();
+            if (code.equals(Err.CANNOT_CAST.code)) return true;
+            return false;
+        });
     }
 
 

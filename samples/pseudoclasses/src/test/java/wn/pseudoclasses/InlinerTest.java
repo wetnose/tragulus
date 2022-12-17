@@ -409,6 +409,17 @@ public class InlinerTest extends PseudoTest {
     }
 
 
+    @Test
+    public void badParam() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertFalse( compile(new Processor(), collector, "BadParam", "IntAnatomy0") );
+        for (Diagnostic<?> diag : collector.getDiagnostics()) {
+            System.out.println(diag.getMessage(null));
+        }
+        assertReport(collector, Diagnostic.Kind.ERROR, "incompatible types: int cannot be converted to IntAnatomy0");
+    }
+
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -22,6 +22,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -85,11 +86,11 @@ public class Processor extends BasicProcessor {
 
         Map<CompilationUnitTree,List<PseudoType>> usages = new HashMap<>();
 
-        boolean valid = pseudos.validate();
+        pseudos.validatePseudotypes();
 
         distribution: {
 
-            if (!valid) break distribution;
+            if (!helper.noErrorReports()) break distribution;
 
             Map<TypeMirror,PseudoType> mirrors = pseudotypes.stream()
                     .collect(Collectors.toMap(t -> t.elem.asType(), t -> t));
@@ -120,23 +121,39 @@ public class Processor extends BasicProcessor {
             });
         }
 
-        if (valid && helper.noErrorReports()) {
+        if (helper.noErrorReports()) {
             Inliner inliner = new Inliner(pseudos);
             preprocessExtensions(pseudos, inliner);
+            List<CompilationUnitTree> units =
             pseudos.all().stream()
                     .flatMap(t -> t.units.stream())
                     .distinct()
-                    .forEach(unit -> {
-                        inliner.inline(new TreePath(unit));
-                        if (listener != null) {
-                            JavacUtils.scan(unit, t -> {
-                                if (t.getKind() == Tree.Kind.CLASS) {
-                                    ClassTree clazz = (ClassTree) t;
-                                    listener.onInlined(clazz.getSimpleName().toString(), clazz.toString());
-                                }
-                            });
-                        }
-                    });
+                    .collect(Collectors.toList());
+
+            units.forEach(unit -> {
+                JavacUtils.walkOver(unit, walker -> {
+                    TreePath path = walker.path();
+                    Tree t = path.getLeaf();
+                    if (t.getKind() == Tree.Kind.CLASS && pseudos.getExtension(JavacUtils.typeOf(t)) == null) {
+                        //System.out.println("CLASS " + ((ClassTree) t).getSimpleName());
+                        pseudos.validateClient(path);
+                    }
+                });
+            });
+            Set<String> ignoreList = Collections.singleton(Pseudos.Err.CONST_EXPR_REQUIRED.code);
+            if (helper.noErrorReports(ignoreList)) {
+                units.forEach(unit -> {
+                    inliner.inline(new TreePath(unit));
+                    if (listener != null) {
+                        JavacUtils.scan(unit, t -> {
+                            if (t.getKind() == Tree.Kind.CLASS) {
+                                ClassTree clazz = (ClassTree) t;
+                                listener.onInlined(clazz.getSimpleName().toString(), clazz.toString());
+                            }
+                        });
+                    }
+                });
+            }
         }
 
         pseudotypes.forEach(type -> {

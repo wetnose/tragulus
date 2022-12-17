@@ -652,7 +652,6 @@ class Inliner extends TreePathScanner<Inliner.Extract, Inliner.Names> {
         if (ext != null) {
             ExpressionTree expr = node.getExpression();
             TreePath expPath = new TreePath(path, expr);
-            pseudos.suppressDiagnostics(CANNOT_CAST, expPath);
             Extract extr = scan(pseudos.unmaskErroneousCasts(expPath), names);
             if (extr != null) return extr;
             TypeMirror exprType = helper.attributeType(new TreePath(path, expr = node.getExpression()));
