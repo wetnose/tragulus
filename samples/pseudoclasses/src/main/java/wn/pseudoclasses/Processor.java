@@ -2,15 +2,12 @@ package wn.pseudoclasses;
 
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import wn.pseudoclasses.Pseudos.Extension;
-import wn.pseudoclasses.Pseudos.PseudoType;
 import wn.tragulus.BasicProcessor;
 import wn.tragulus.Editors;
 import wn.tragulus.JavacUtils;
@@ -21,18 +18,13 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -65,98 +57,24 @@ public class Processor extends BasicProcessor {
         if (env.getRootElements().isEmpty()) return false;
 
         Pseudos pseudos = new Pseudos(helper);
-        ArrayList<PseudoType> pseudotypes = new ArrayList<>();
-
-        Trees trees = helper.getTreeUtils();
-        env.getRootElements().stream().map(trees::getPath).forEach(new Consumer<>() {
-            @Override
-            public void accept(TreePath path) {
-                Tree node = path.getLeaf();
-                switch (node.getKind()) {
-                    case CLASS:
-                    case INTERFACE:
-                        PseudoType pt = pseudos.pseudoTypeOf(path);
-                        if (pt != null) pseudotypes.add(pt);
-                        ((ClassTree) node).getMembers().forEach(member -> accept(new TreePath(path, member)));
-                }
-            }
-        });
-
-        pseudotypes.forEach(System.out::println);
-
-        Map<CompilationUnitTree,List<PseudoType>> usages = new HashMap<>();
-
-        pseudos.validatePseudotypes();
-
-        distribution: {
-
-            if (!helper.noErrorReports()) break distribution;
-
-            Map<TypeMirror,PseudoType> mirrors = pseudotypes.stream()
-                    .collect(Collectors.toMap(t -> t.elem.asType(), t -> t));
-
-            BiConsumer<PseudoType,CompilationUnitTree> distribute = (ref, unit) -> {
-                ref.add(unit);
-                usages.compute(unit, (u, list) -> list != null ? list : new ArrayList<>()).add(ref);
-            };
-
-            collectCompilationUnits(env, unit -> true).forEach(unit -> {
-                unit.getImports().forEach(imp -> {
-                    Tree id = imp.getQualifiedIdentifier();
-                    TypeMirror ref = JavacUtils.typeOf(imp.isStatic() ? ((MemberSelectTree) id).getExpression() : id);
-                    PseudoType pt = mirrors.get(ref);
-                    if (pt != null) {
-                        distribute.accept(pt, unit);
-                    }
-                });
-
-                ExpressionTree unitPkg = unit.getPackageName();
-                pseudotypes.forEach(type -> {
-                    ExpressionTree refPkg = type.path.getCompilationUnit().getPackageName();
-                    if (Objects.equals(refPkg, unitPkg)) {
-                        distribute.accept(type, unit);
-                    }
-                });
-
-            });
-        }
-
-        if (helper.noErrorReports()) {
+        Collection<CompilationUnitTree> usages = pseudos.collectUsages(env.getRootElements());
+        if (usages != null) {
             Inliner inliner = new Inliner(pseudos);
             preprocessExtensions(pseudos, inliner);
-            List<CompilationUnitTree> units =
-            pseudos.all().stream()
-                    .flatMap(t -> t.units.stream())
-                    .distinct()
-                    .collect(Collectors.toList());
-
-            units.forEach(unit -> {
-                JavacUtils.walkOver(unit, walker -> {
-                    TreePath path = walker.path();
-                    Tree t = path.getLeaf();
-                    if (t.getKind() == Tree.Kind.CLASS && pseudos.getExtension(JavacUtils.typeOf(t)) == null) {
-                        //System.out.println("CLASS " + ((ClassTree) t).getSimpleName());
-                        pseudos.validateClient(path);
-                    }
-                });
+            usages.forEach(unit -> {
+                inliner.inline(new TreePath(unit));
+                if (listener != null) {
+                    JavacUtils.scan(unit, t -> {
+                        if (t.getKind() == Tree.Kind.CLASS) {
+                            ClassTree clazz = (ClassTree) t;
+                            listener.onInlined(clazz.getSimpleName().toString(), clazz.toString());
+                        }
+                    });
+                }
             });
-            Set<String> ignoreList = Collections.singleton(Pseudos.Err.CONST_EXPR_REQUIRED.code);
-            if (helper.noErrorReports(ignoreList)) {
-                units.forEach(unit -> {
-                    inliner.inline(new TreePath(unit));
-                    if (listener != null) {
-                        JavacUtils.scan(unit, t -> {
-                            if (t.getKind() == Tree.Kind.CLASS) {
-                                ClassTree clazz = (ClassTree) t;
-                                listener.onInlined(clazz.getSimpleName().toString(), clazz.toString());
-                            }
-                        });
-                    }
-                });
-            }
         }
 
-        pseudotypes.forEach(type -> {
+        pseudos.all().forEach(type -> {
             Tree tree = type.path.getLeaf();
             if (tree == null) throw new AssertionError();
             CompilationUnitTree unit = type.path.getCompilationUnit();

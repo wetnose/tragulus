@@ -6,6 +6,7 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ParameterizedTypeTree;
@@ -32,13 +33,16 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static com.sun.tools.javac.code.Flags.FINAL;
 import static javax.lang.model.element.ElementKind.CONSTRUCTOR;
@@ -184,12 +188,63 @@ class Pseudos {
     }
 
 
-    void validatePseudotypes() {
-        pseudotypes.values().forEach(this::validate);
+    Collection<CompilationUnitTree> collectUsages(Set<? extends Element> roots) {
+        roots.stream().map(trees::getPath).forEach(new Consumer<>() {
+            @Override
+            public void accept(TreePath path) {
+                Tree node = path.getLeaf();
+                switch (node.getKind()) {
+                    case CLASS:
+                    case INTERFACE:
+                        pseudoTypeOf(path);
+                        ((ClassTree) node).getMembers().forEach(member -> accept(new TreePath(path, member)));
+                }
+            }
+        });
+
+        pseudotypes.values().forEach(this::validatePseudotype);
+        if (!helper.noErrorReports()) return null;
+
+        Set<CompilationUnitTree> units = new HashSet<>();
+        roots.stream().map(trees::getPath).map(TreePath::getCompilationUnit).distinct().forEach(unit -> {
+            unit.getImports().forEach(imp -> {
+                Tree id = imp.getQualifiedIdentifier();
+                TypeMirror ref = JavacUtils.typeOf(imp.isStatic() ? ((MemberSelectTree) id).getExpression() : id);
+                PseudoType pt = pseudotypes.get(ref);
+                if (pt != null) units.add(unit);
+            });
+
+            ExpressionTree unitPkg = unit.getPackageName();
+            pseudotypes.values().forEach(type -> {
+                ExpressionTree typePkg = type.path.getCompilationUnit().getPackageName();
+                if (Objects.equals(typePkg, unitPkg)) {
+                    units.add(unit);
+                }
+            });
+        });
+
+        units.forEach(unit -> {
+            JavacUtils.walkOver(unit, walker -> {
+                TreePath path = walker.path();
+                Tree t = path.getLeaf();
+                if (t.getKind() == Tree.Kind.CLASS && getExtension(JavacUtils.typeOf(t)) == null) {
+                    //System.out.println("CLASS " + ((ClassTree) t).getSimpleName());
+                    validateUsages(path);
+                }
+            });
+        });
+
+        boolean valid = helper.getDiagnosticQ().stream().noneMatch(diag ->
+                diag.getKind() == Diagnostic.Kind.ERROR &&
+                !diag.getCode().equals(Err.CONST_EXPR_REQUIRED.code)); // keep for switch/case
+
+        if (!valid) return null;
+
+        return units;
     }
 
 
-    private void validate(PseudoType type) {
+    private void validatePseudotype(PseudoType type) {
         TreePath root = type.path;
         {
             TreePath par;
@@ -277,11 +332,11 @@ class Pseudos {
                 return null;
             }
         }.scan(root, null);
-        System.out.println(type.path.getParentPath().getLeaf());
+        //System.out.println(type.path.getParentPath().getLeaf());
     }
 
 
-    void validateClient(TreePath path) {
+    private void validateUsages(TreePath path) {
         maskErroneousCasts(path);
         new TreePathScanner<Void,Void>() {
             @Override
@@ -303,9 +358,7 @@ class Pseudos {
         JavaFileObject src = path.getCompilationUnit().getSourceFile();
         helper.filterDiagnostics(diag -> {
             if (diag.getSource() != src) return false;
-            String code = diag.getCode();
-            if (code.equals(Err.CANNOT_CAST.code)) return true;
-            return false;
+            return diag.getCode().equals(Err.CANNOT_CAST.code);
         });
     }
 
