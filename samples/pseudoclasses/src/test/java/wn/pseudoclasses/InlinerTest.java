@@ -398,6 +398,17 @@ public class InlinerTest extends PseudoTest {
     }
 
 
+    @Test
+    public void param() throws Exception {
+        SourceCollector sc = new SourceCollector("Param");
+        Assertions.assertTrue( compile(new Processor(sc), "Param", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("Param", out);
+        Assertions.assertEquals("15", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("Param-patched")), norm(sc.get("Param")));
+    }
+
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
