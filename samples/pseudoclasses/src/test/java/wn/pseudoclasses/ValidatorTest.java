@@ -139,6 +139,14 @@ public class ValidatorTest extends PseudoTest {
 
 
     @Test
+    public void methodOverriding2() throws Exception {
+        DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
+        Assertions.assertFalse( compile(new Processor(), collector, "MethodOverriding2") );
+        assertReport(collector, Diagnostic.Kind.ERROR, "method overriding not supported");
+    }
+
+
+    @Test
     public void unexpectedAnnotation() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
         Assertions.assertFalse( compile(new Processor(), collector, "UnexpectedAnnotation") );
@@ -146,6 +154,7 @@ public class ValidatorTest extends PseudoTest {
     }
 
 
+    @Disabled
     @Test
     public void intAnatomy() throws Exception {
         DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();

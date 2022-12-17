@@ -431,10 +431,14 @@ class Pseudos {
                                 if (elements.getOrigin(elem) == MANDATED) break;
                                 if (prim) {
                                     helper.printError("prohibited constructor declaration", path);
-                                } else {
-                                    constructors.add(new Method(this, path));
+                                    status = ST_INVALID;
                                 }
+                                constructors.add(new Method(this, path));
                             } else {
+                                if (!helper.getOverriddenMethods(elem).isEmpty()) {
+                                    helper.printError("method overriding not supported", path);
+                                    status = ST_INVALID;
+                                }
                                 methods.add(new Method(this, path));
                             }
                             if (isConst(elem)) constant.add(elem); //todo inline invocations of other pseudo methods
@@ -504,13 +508,7 @@ class Pseudos {
         boolean decompose() {
             if (status == ST_CREATED) {
                 super.decompose();
-                for (Method m : methods) {
-                    Element elem = trees.getElement(m.path);
-                    if (!helper.getOverriddenMethods(elem).isEmpty()) {
-                        helper.printError("method overriding not supported", m.path);
-                        status = ST_INVALID;
-                    }
-                }
+                //todo
             }
             return status == ST_INVALID;
         }

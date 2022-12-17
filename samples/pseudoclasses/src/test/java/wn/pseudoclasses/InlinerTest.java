@@ -387,6 +387,17 @@ public class InlinerTest extends PseudoTest {
     }
 
 
+    @Test
+    public void retArrayType() throws Exception {
+        SourceCollector sc = new SourceCollector("RetArrayType");
+        Assertions.assertTrue( compile(new Processor(sc), "RetArrayType", "IntAnatomy0") );
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        run("RetArrayType", out);
+        Assertions.assertEquals("[15]", norm(out.toString(US_ASCII)));
+        Assertions.assertEquals(norm(contentOf("RetArrayType-patched")), norm(sc.get("RetArrayType")));
+    }
+
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Supplementary classes & routines                                                                               //
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
